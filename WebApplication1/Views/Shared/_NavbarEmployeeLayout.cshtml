@@ -1,0 +1,451 @@
+@using System.Security.Claims
+@using WebApplication1.Models.db
+@inject FooddeliverydbContext _db
+
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - CSI402_66078633</title>
+    <script type="importmap"></script>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/CSI402_66078633.styles.css" asp-append-version="true" />
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+
+    <!-- Prompt Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary-red: #AA132A;
+            --secondary-soft: #E0C5A7;
+            --bg-main: #FDF7EA;
+            --navy: #003049;
+            --soft-line: rgba(224, 197, 167, 0.65);
+            --soft-shadow: 0 8px 24px rgba(0, 48, 73, 0.06);
+            --soft-shadow-lg: 0 14px 36px rgba(0, 48, 73, 0.10);
+            --active-green: #7E8364;
+        }
+
+        html, body {
+            background: var(--bg-main);
+            color: var(--navy);
+            font-family: 'Prompt', sans-serif;
+        }
+
+        /* FORCE PROMPT */
+        html, body,
+        .navbar, .restaurant-navbar,
+        .menu-link,
+        .user-chip, .user-name, .user-status,
+        .btn, .dropdown-item,
+        .modal-content, .modal-title,
+        .form-control, .form-label,
+        .alert,
+        h1, h2, h3, h4, h5, h6,
+        p, span, div, a, button, input, textarea, label {
+            font-family: 'Prompt', sans-serif !important;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            font-weight: 700;
+            letter-spacing: -0.2px;
+        }
+
+        /* ===================== NAVBAR ===================== */
+        .restaurant-navbar {
+            background: rgba(253, 247, 234, 0.97);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid var(--soft-line);
+            box-shadow: 0 4px 18px rgba(0, 48, 73, 0.04);
+            padding: 12px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1030;
+        }
+
+        .nav-grid {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            gap: 18px;
+        }
+
+        /* LEFT */
+        .nav-left {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            min-width: 0;
+        }
+
+        .logo-img {
+            height: 54px;
+            width: auto;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
+
+        /* CENTER */
+        .nav-center {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .menu-wrapper {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: nowrap;
+            background: rgba(255, 255, 255, 0.78);
+            border: 1px solid rgba(224, 197, 167, 0.65);
+            border-radius: 999px;
+            padding: 6px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+        }
+
+        .menu-link {
+            color: var(--navy);
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 500;
+            padding: 10px 18px;
+            border-radius: 999px;
+            transition: all 0.22s ease;
+            white-space: nowrap;
+            background: transparent;
+            border: 1px solid transparent;
+        }
+
+        .menu-link:hover {
+            background: #fff;
+            color: var(--primary-red);
+            border-color: rgba(224, 197, 167, 0.85);
+            box-shadow: 0 6px 16px rgba(0, 48, 73, 0.04);
+        }
+
+        .menu-link.active-nav {
+            background: #fff;
+            color: var(--primary-red);
+            border-color: rgba(170, 19, 42, 0.12);
+            box-shadow: 0 8px 18px rgba(170, 19, 42, 0.07);
+            font-weight: 600;
+        }
+
+        /* RIGHT */
+        .nav-right {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .user-chip {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #fff;
+            border: 1px solid rgba(224, 197, 167, 0.75);
+            border-radius: 16px;
+            padding: 8px 12px;
+            box-shadow: 0 6px 16px rgba(0, 48, 73, 0.04);
+            min-height: 46px;
+            max-width: 230px;
+        }
+
+        .user-avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 12px;
+            background: rgba(170, 19, 42, 0.08);
+            color: var(--primary-red);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .user-meta {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.1;
+            min-width: 0;
+        }
+
+        .user-name {
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: var(--navy);
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .user-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--active-green);
+            margin-top: 2px;
+        }
+
+        .user-status.inactive {
+            color: #9ca3af;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--active-green);
+            display: inline-block;
+        }
+
+        .user-status.inactive .status-dot {
+            background: #9ca3af;
+        }
+
+        .profile-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 46px;
+            height: 46px;
+            border-radius: 14px;
+            background: #fff;
+            color: var(--navy);
+            text-decoration: none;
+            font-size: 22px;
+            transition: all 0.22s ease;
+            border: 1px solid rgba(224, 197, 167, 0.75);
+            box-shadow: 0 6px 16px rgba(0, 48, 73, 0.04);
+        }
+
+        .profile-btn:hover {
+            background: #fff;
+            color: var(--primary-red);
+            border-color: rgba(170, 19, 42, 0.18);
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(0, 48, 73, 0.08);
+        }
+
+        .profile-btn:focus,
+        .profile-btn:active {
+            box-shadow: none;
+            outline: none;
+        }
+
+        .dropdown-toggle::after {
+            display: none !important;
+        }
+
+        .profile-dropdown-menu {
+            min-width: 220px;
+            border: 1px solid rgba(224, 197, 167, 0.55);
+            border-radius: 18px;
+            padding: 8px;
+            box-shadow: var(--soft-shadow-lg);
+            margin-top: 10px !important;
+            background: #fff;
+        }
+
+        .profile-dropdown-menu .dropdown-item {
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-weight: 500;
+            color: var(--navy);
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .profile-dropdown-menu .dropdown-item:hover {
+            background: #fdf7ea;
+            color: var(--primary-red);
+        }
+
+        .profile-dropdown-menu .dropdown-item.text-danger {
+            color: var(--primary-red) !important;
+        }
+
+        .profile-dropdown-menu .dropdown-item.text-danger:hover {
+            background: #fff4f5;
+            color: #8f1023 !important;
+        }
+
+        .logout-form-inline {
+            margin: 0;
+            padding: 0;
+        }
+
+        .logout-btn-clean {
+            border: 0;
+            background: transparent;
+            width: 100%;
+            text-align: left;
+        }
+
+        .page-content {
+            margin-top: 24px;
+            margin-bottom: 28px;
+        }
+
+        @@media (max-width: 1199.98px) {
+            .nav-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .nav-left,
+            .nav-center,
+            .nav-right {
+                justify-content: center;
+            }
+
+            .user-chip {
+                max-width: none;
+            }
+        }
+
+        @@media (max-width: 767.98px) {
+            .menu-wrapper {
+                flex-wrap: wrap;
+                border-radius: 18px;
+            }
+
+            .menu-link {
+                width: 100%;
+                text-align: center;
+            }
+
+            .nav-right {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    @{
+        // ===== CURRENT USER FROM CLAIMS + DB =====
+        var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var currentUser = !string.IsNullOrWhiteSpace(currentUserId)
+            ? _db.FoodUsers.FirstOrDefault(u => u.UserId == currentUserId)
+            : null;
+
+        var displayUserName = currentUser?.UserName ?? "Employee";
+        var isActive = (currentUser?.UserStatus ?? 0) == 1;
+        var displayStatus = isActive ? "Active" : "Inactive";
+
+        // ===== ACTIVE MENU =====
+        var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+        var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+
+        bool isOrderListPage = currentController == "Order" && currentAction == "OrderList";
+        bool isMenuStatusPage = currentController == "Menu" && currentAction == "MenuStatus";
+        bool isHistoryEmployeePage = currentController == "Order" && currentAction == "HistoryEmployee";
+    }
+
+    <nav class="container-fluid restaurant-navbar">
+        <div class="container">
+            <div class="nav-grid">
+
+                <!-- LEFT : LOGO -->
+                <div class="nav-left">
+                    <img src="~/img/ครัว.png" class="logo-img" alt="Logo" />
+                </div>
+
+                <!-- CENTER : MENU -->
+                <div class="nav-center">
+                    <div class="menu-wrapper">
+                        <a class="menu-link @(isOrderListPage ? "active-nav" : "")"
+                           asp-controller="Order"
+                           asp-action="OrderList">
+                            รายการสั่งซื้อ
+                        </a>
+
+                        <a class="menu-link @(isMenuStatusPage ? "active-nav" : "")"
+                           asp-controller="Menu"
+                           asp-action="MenuStatus">
+                            สถานะเมนู
+                        </a>
+
+                        <a class="menu-link @(isHistoryEmployeePage ? "active-nav" : "")"
+                           asp-controller="Order"
+                           asp-action="HistoryEmployee">
+                            ประวัติการขาย
+                        </a>
+                    </div>
+                </div>
+
+                <!-- RIGHT : USER + STATUS + PROFILE -->
+                <div class="nav-right">
+
+                    <!-- USER NAME + STATUS -->
+                    <div class="user-chip">
+                        <div class="user-avatar">
+                            <i class='bx bx-user'></i>
+                        </div>
+                        <div class="user-meta">
+                            <div class="user-name" title="@displayUserName">@displayUserName</div>
+                            <div class="user-status @(isActive ? "" : "inactive")">
+                                <span class="status-dot"></span>
+                                <span>@displayStatus</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PROFILE / SETTINGS -->
+                    <div class="dropdown d-inline-block">
+                        <button class="profile-btn dropdown-toggle"
+                                type="button"
+                                id="employeeProfileDropdownBtn"
+                                data-bs-toggle="dropdown"
+                                aria-expanded="false"
+                                title="บัญชีผู้ใช้">
+                            <i class='bx bx-cog'></i>
+                        </button>
+
+                        <ul class="dropdown-menu dropdown-menu-end profile-dropdown-menu"
+                            aria-labelledby="employeeProfileDropdownBtn">
+                            <li>
+                                <form asp-controller="Auth" asp-action="Logout" method="post" class="logout-form-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="dropdown-item text-danger logout-btn-clean">
+                                        ออกจากระบบ
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </nav>
+
+    <div class="container page-content">
+        @RenderBody()
+    </div>
+
+    <!-- JS -->
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    @RenderSection("Scripts", required: false)
+
+</body>
+
+</html>

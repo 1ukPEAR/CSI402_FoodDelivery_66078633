@@ -1,0 +1,132 @@
+@model WebApplication1.Models.db.FoodUser
+
+@{
+    Layout = "_NavbarOwnerLayout";
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+
+            <div class="card shadow-sm border-0 rounded-4">
+                <div class="card-body p-4">
+
+                    <div class="mb-4 text-center">
+                        <h2 class="fw-bold mb-1">Edit Employee</h2>
+                        <p class="text-muted mb-0">แก้ไขข้อมูลพนักงาน</p>
+                    </div>
+
+                    @if (TempData["Error"] != null)
+                    {
+                        <div class="alert alert-danger rounded-3">@TempData["Error"]</div>
+                    }
+
+                    @if (TempData["Success"] != null)
+                    {
+                        <div class="alert alert-success rounded-3">@TempData["Success"]</div>
+                    }
+
+                    <form asp-controller="User" asp-action="UserEdit" method="post">
+
+                        @Html.AntiForgeryToken()
+
+                        <!-- Hidden UserId -->
+                        <input type="hidden" asp-for="UserId" />
+
+                        <!-- Hidden RoleId -->
+                        <input type="hidden" asp-for="RoleId" />
+
+                        <!-- Hidden RegisterDate -->
+                        <input type="hidden" asp-for="RegisterDate" />
+
+                        <!-- Hidden Password เดิมกันค่า null หลุด -->
+                        <input type="hidden" asp-for="UserPassword" />
+
+                        <!-- Hidden แต้ม / จำนวนออเดอร์ กันค่าหาย -->
+                        <input type="hidden" asp-for="LoyaltyPoints" />
+                        <input type="hidden" asp-for="OrderCount" />
+
+                        <!-- User ID -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">User ID</label>
+                            <input type="text" class="form-control rounded-3" value="@Model.UserId" readonly />
+                        </div>
+
+                        <!-- Username -->
+                        <div class="mb-3">
+                            <label asp-for="UserName" class="form-label fw-semibold">Username</label>
+                            <input asp-for="UserName" class="form-control rounded-3" placeholder="กรอกชื่อผู้ใช้" required />
+                            <span asp-validation-for="UserName" class="text-danger small"></span>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="mb-3">
+                            <label asp-for="UserEmail" class="form-label fw-semibold">Email</label>
+                            <input asp-for="UserEmail" type="email" class="form-control rounded-3" placeholder="กรอกอีเมล" />
+                            <span asp-validation-for="UserEmail" class="text-danger small"></span>
+                        </div>
+
+                        <!-- Phone -->
+                        <div class="mb-3">
+                            <label asp-for="UserPhone" class="form-label fw-semibold">Phone</label>
+                            <input asp-for="UserPhone" class="form-control rounded-3" placeholder="กรอกเบอร์โทร" />
+                            <span asp-validation-for="UserPhone" class="text-danger small"></span>
+                        </div>
+
+                        <!-- NEW PASSWORD -->
+                        <div class="mb-3">
+                            <label asp-for="NewPassword" class="form-label fw-semibold">New Password</label>
+                            <input asp-for="NewPassword"
+                                   type="password"
+                                   class="form-control rounded-3"
+                                   placeholder="เว้นว่างไว้หากไม่ต้องการเปลี่ยนรหัสผ่าน" />
+                            <span asp-validation-for="NewPassword" class="text-danger small"></span>
+                            <div class="form-text">
+                                ถ้าไม่กรอก ระบบจะใช้รหัสผ่านเดิม
+                            </div>
+                        </div>
+
+                        <!-- CONFIRM NEW PASSWORD -->
+                        <div class="mb-4">
+                            <label asp-for="ConfirmPassword" class="form-label fw-semibold">Confirm New Password</label>
+                            <input asp-for="ConfirmPassword"
+                                   type="password"
+                                   class="form-control rounded-3"
+                                   placeholder="กรอกรหัสผ่านใหม่อีกครั้ง" />
+                            <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
+                        </div>
+
+                        <!-- Status -->
+                        <div class="mb-4">
+                            <label asp-for="UserStatus" class="form-label fw-semibold">Status</label>
+                            <select asp-for="UserStatus" class="form-select rounded-3">
+                                <option value="1">Active</option>
+                                <option value="0">Inactive</option>
+                            </select>
+                            <span asp-validation-for="UserStatus" class="text-danger small"></span>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-flex justify-content-between">
+                            <a asp-controller="User" asp-action="UserList" class="btn btn-secondary rounded-3 px-4">
+                                ← Back
+                            </a>
+
+                            <button type="submit" class="btn btn-danger rounded-3 px-4">
+                                Save Changes
+                            </button>
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

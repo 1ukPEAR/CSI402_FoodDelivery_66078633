@@ -1,0 +1,170 @@
+@model WebApplication1.Models.db.FoodMenu
+@using WebApplication1.Models.db
+
+@{
+    Layout = "_NavbarOwnerLayout";
+    var menuTypes = ViewBag.MenuTypes as List<FoodMenutype>;
+    var imgPath = string.IsNullOrWhiteSpace(Model.MenuImage)
+        ? "/img/menu/default-food.jpg"
+        : (Model.MenuImage.StartsWith("/") ? Model.MenuImage : "/img/menu/" + Model.MenuImage);
+}
+
+<div class="container p-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Edit Menu</h2>
+        <a asp-controller="Menu" asp-action="ManageMenu" class="btn btn-secondary rounded-3">Back</a>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-3" role="alert">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show rounded-3" role="alert">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="card shadow border-0 rounded-4 p-4">
+        <form asp-controller="Menu" asp-action="EditMenu" method="post" enctype="multipart/form-data">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="MenuId" value="@Model.MenuId" />
+
+            <div class="mb-3">
+                <label class="form-label">ประเภทเมนู</label>
+                <select class="form-select" name="MenuTypeId" required>
+                    <option value="">-- เลือกประเภทเมนู --</option>
+                    @if (menuTypes != null)
+                    {
+                        @foreach (var type in menuTypes)
+                        {
+                            if (type.MenuTypeId == Model.MenuTypeId)
+                            {
+                                <option value="@type.MenuTypeId" selected>@type.MenuTypeName</option>
+                            }
+                            else
+                            {
+                                <option value="@type.MenuTypeId">@type.MenuTypeName</option>
+                            }
+                        }
+                    }
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">ชื่อเมนู</label>
+                <input type="text" class="form-control" name="MenuName" value="@Model.MenuName" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">ราคา</label>
+                <input type="number" step="0.01" class="form-control" name="MenuPrice" value="@Model.MenuPrice" min="0">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">รูปเมนูปัจจุบัน</label><br />
+                <img src="@Url.Content(imgPath)" class="rounded-3 border" style="max-width:200px; max-height:200px; object-fit:cover;" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">เปลี่ยนรูปใหม่ (ถ้ามี)</label>
+                <input type="file" class="form-control" name="MenuImageFile" accept="image/*">
+            </div>
+
+            <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label mb-0 fw-bold">ตัวเลือกเพิ่มเติม</label>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="addOptionRow()">
+                        + เพิ่มตัวเลือก
+                    </button>
+                </div>
+
+                <div id="optionContainer">
+                    @if (Model.FoodMenuoptions != null && Model.FoodMenuoptions.Any())
+                    {
+                        @foreach (var opt in Model.FoodMenuoptions)
+                        {
+                            <div class="row option-row g-2 mb-2">
+                                <div class="col-md-6">
+                                    <input type="text" class="form-control" name="OptionName" value="@opt.OptionName" placeholder="เช่น ไข่ดาว / ชีส / ไข่มุก">
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="number" step="0.01" class="form-control" name="ExtraPrice" value="@opt.ExtraPrice" placeholder="ราคาเพิ่ม" min="0">
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="button" class="btn btn-outline-secondary w-100" onclick="removeOptionRow(this)">
+                                        ลบ
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="row option-row g-2 mb-2">
+                            <div class="col-md-6">
+                                <input type="text" class="form-control" name="OptionName" placeholder="เช่น ไข่ดาว / ชีส / ไข่มุก">
+                            </div>
+                            <div class="col-md-4">
+                                <input type="number" step="0.01" class="form-control" name="ExtraPrice" placeholder="ราคาเพิ่ม" min="0">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-outline-secondary w-100" onclick="removeOptionRow(this)">
+                                    ลบ
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary rounded-3">บันทึกการแก้ไข</button>
+                <a asp-controller="Menu" asp-action="ManageMenu" class="btn btn-secondary rounded-3">ยกเลิก</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function addOptionRow() {
+        const container = document.getElementById("optionContainer");
+
+        const row = document.createElement("div");
+        row.className = "row option-row g-2 mb-2";
+
+        row.innerHTML = `
+            <div class="col-md-6">
+                <input type="text" class="form-control" name="OptionName" placeholder="เช่น ไข่ดาว / ชีส / ไข่มุก">
+            </div>
+            <div class="col-md-4">
+                <input type="number" step="0.01" class="form-control" name="ExtraPrice" placeholder="ราคาเพิ่ม" min="0">
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-outline-secondary w-100" onclick="removeOptionRow(this)">
+                    ลบ
+                </button>
+            </div>
+        `;
+
+        container.appendChild(row);
+    }
+
+    function removeOptionRow(button) {
+        const rows = document.querySelectorAll("#optionContainer .option-row");
+
+        if (rows.length === 1) {
+            rows[0].querySelector('input[name="OptionName"]').value = "";
+            rows[0].querySelector('input[name="ExtraPrice"]').value = "";
+            return;
+        }
+
+        button.closest(".option-row").remove();
+    }
+</script>

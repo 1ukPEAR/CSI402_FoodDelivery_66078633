@@ -1,0 +1,690 @@
+@model List<WebApplication1.Models.db.FoodOrder>
+
+@{
+    Layout = "_NavbarUserLayout";
+    ViewData["Title"] = "ประวัติการสั่งซื้อ";
+
+    var orderItems = ViewBag.OrderItems as List<WebApplication1.Models.db.FoodOrderitem>
+                     ?? new List<WebApplication1.Models.db.FoodOrderitem>();
+
+    var allMenus = ViewBag.AllMenus as List<WebApplication1.Models.db.FoodMenu>
+                   ?? new List<WebApplication1.Models.db.FoodMenu>();
+
+    string GetOrderStatusText(ulong? status)
+    {
+        return status switch
+        {
+            1 => "รอพนักงานยืนยันออเดอร์",
+            2 => "รอลูกค้าชำระเงิน",
+            3 => "รอพนักงานตรวจสอบการชำระเงิน",
+            4 => "ชำระเงินสำเร็จ / เตรียมจัดส่ง",
+            5 => "กำลังจัดส่ง",
+            6 => "กำลังจัดส่ง",
+            7 => "สำเร็จแล้ว",
+            8 => "ถูกปฏิเสธ",
+            _ => "ไม่ทราบสถานะ"
+        };
+    }
+
+    string GetOrderStatusBadgeClass(ulong? status)
+    {
+        return status switch
+        {
+            1 => "bg-warning text-dark",
+            2 => "bg-info text-dark",
+            3 => "bg-primary",
+            4 => "bg-primary",
+            5 => "bg-secondary",
+            6 => "bg-secondary",
+            7 => "bg-success",
+            8 => "bg-danger",
+            _ => "bg-dark"
+        };
+    }
+
+    string GetReviewDecisionText(ulong? reviewDecision)
+    {
+        if (reviewDecision == 1) return "รีวิวแล้ว";
+        if (reviewDecision == 2) return "ไม่รีวิว";
+        return "ยังไม่ได้เลือก";
+    }
+
+    string GetReviewDecisionBadgeClass(ulong? reviewDecision)
+    {
+        if (reviewDecision == 1) return "bg-success";
+        if (reviewDecision == 2) return "bg-secondary";
+        return "bg-warning text-dark";
+    }
+
+    string GetPromotionText(WebApplication1.Models.db.FoodOrder order)
+    {
+        if (order.Promotion == null) return "-";
+
+        var promoName = string.IsNullOrWhiteSpace(order.Promotion.PromotionName)
+            ? order.Promotion.PromotionId
+            : order.Promotion.PromotionName;
+
+        var discountType = (order.Promotion.DiscountType ?? "").Trim().ToUpper();
+        decimal discountValue = order.Promotion.DiscountValue;
+
+        if (discountType == "AMOUNT")
+        {
+            return $"{promoName} (ลด {discountValue:N2} บาท)";
+        }
+
+        var percent = discountValue > 0 ? discountValue : (decimal)(order.Promotion.DiscountPercent ?? 0);
+        return $"{promoName} (ลด {percent:N0}%)";
+    }
+}
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
+
+    :root {
+        --primary-red: #AA132A;
+        --soft-red-border: rgba(170, 19, 42, 0.14);
+        --navy: #003049;
+        --text-muted: #6B7280;
+        --line-soft: #ECE7DE;
+        --success-soft: #EEF6EE;
+        --danger-soft: #FFF3F4;
+        --shadow-soft: 0 8px 24px rgba(0, 48, 73, 0.05);
+        --shadow-card: 0 10px 28px rgba(0, 48, 73, 0.06);
+    }
+
+    html,
+    body,
+    .container,
+    .card,
+    .btn,
+    .form-control,
+    .form-select,
+    .modal-content,
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6,
+    p,
+    span,
+    div,
+    a,
+    button,
+    textarea,
+    label,
+    small,
+    option,
+    table,
+    th,
+    td {
+        font-family: 'Prompt', sans-serif !important;
+    }
+
+    body {
+        background: transparent;
+    }
+
+    .page-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--navy);
+        letter-spacing: -0.3px;
+    }
+
+    .page-subtitle {
+        color: var(--text-muted);
+        margin-bottom: 0;
+        font-size: 0.95rem;
+    }
+
+    .alert-clean-success {
+        border: 1px solid #D8E9D8;
+        background: var(--success-soft);
+        color: #2F6F4F;
+        border-radius: 18px;
+        padding: 0.9rem 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .alert-clean-danger {
+        border: 1px solid #F3D4D8;
+        background: var(--danger-soft);
+        color: #8F1023;
+        border-radius: 18px;
+        padding: 0.9rem 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .history-table-wrap {
+        border: 1px solid var(--line-soft);
+        border-radius: 24px;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: var(--shadow-card);
+    }
+
+    .table {
+        margin-bottom: 0 !important;
+    }
+
+    .table> :not(caption)>*>* {
+        vertical-align: middle;
+        border-bottom-color: var(--line-soft);
+    }
+
+    .table thead th {
+        background: #FAF8F4 !important;
+        color: var(--navy);
+        font-size: 0.85rem;
+        font-weight: 700;
+        white-space: nowrap;
+        border-bottom: 1px solid var(--line-soft);
+        padding: 1rem 0.9rem;
+    }
+
+    .table tbody td {
+        padding: 1rem 0.9rem;
+        white-space: nowrap;
+    }
+
+    .table td:nth-child(3),
+    .table td:nth-child(7),
+    .table td:nth-child(8) {
+        white-space: normal;
+    }
+
+    .order-id {
+        font-weight: 700;
+        color: var(--navy);
+    }
+
+    .order-date {
+        color: var(--navy);
+        font-weight: 500;
+    }
+
+    .order-time {
+        color: var(--text-muted);
+        font-size: 0.82rem;
+    }
+
+    .promotion-text {
+        font-weight: 600;
+        color: #2F6F4F;
+    }
+
+    .promotion-sub {
+        color: var(--text-muted);
+        font-size: 0.78rem;
+    }
+
+    .price-main {
+        font-weight: 700;
+        color: var(--primary-red);
+    }
+
+    .price-discount {
+        color: var(--primary-red);
+        font-weight: 700;
+    }
+
+    .points-earned {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+    }
+
+    .status-badge-clean {
+        border-radius: 999px !important;
+        padding: 0.55rem 0.85rem !important;
+        font-size: 0.76rem;
+        font-weight: 600;
+    }
+
+    .btn-detail-clean {
+        background: #fff;
+        border: 1px solid var(--line-soft);
+        color: var(--navy);
+        border-radius: 999px;
+        padding: 0.45rem 0.9rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        box-shadow: none !important;
+    }
+
+    .btn-detail-clean:hover {
+        background: #FAF8F4;
+        color: var(--primary-red);
+        border-color: var(--soft-red-border);
+    }
+
+    .detail-row {
+        background: #FCFBF8;
+    }
+
+    .detail-panel {
+        padding: 1.1rem;
+        border-top: 1px solid var(--line-soft);
+    }
+
+    .detail-card {
+        border: 1px solid var(--line-soft) !important;
+        border-radius: 20px !important;
+        background: #fff !important;
+        box-shadow: none !important;
+    }
+
+    .detail-card .card-body {
+        padding: 1.2rem !important;
+    }
+
+    .section-heading {
+        font-size: 0.98rem;
+        font-weight: 700;
+        color: var(--navy);
+        margin-bottom: 1rem;
+    }
+
+    .menu-thumb {
+        width: 48px;
+        height: 48px;
+        object-fit: cover;
+        border-radius: 12px;
+        border: 1px solid var(--line-soft);
+    }
+
+    .menu-name {
+        font-weight: 600;
+        color: var(--navy);
+    }
+
+    .menu-sub {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+    }
+
+    .summary-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 0.75rem;
+    }
+
+    .summary-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .summary-label {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .summary-value {
+        color: var(--navy);
+        font-weight: 600;
+        text-align: right;
+    }
+
+    .summary-value.red {
+        color: var(--primary-red);
+    }
+
+    .summary-divider {
+        border-color: var(--line-soft);
+        margin: 0.9rem 0;
+    }
+
+    .slip-btn {
+        background: #fff;
+        border: 1px solid var(--line-soft);
+        color: var(--navy);
+        border-radius: 999px;
+        padding: 0.45rem 0.9rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .slip-btn:hover {
+        background: #FAF8F4;
+        color: var(--primary-red);
+        border-color: var(--soft-red-border);
+    }
+
+    .empty-card {
+        border: 1px solid var(--line-soft) !important;
+        border-radius: 24px !important;
+        background: #fff !important;
+        box-shadow: var(--shadow-soft) !important;
+    }
+
+    @@media (max-width: 991.98px) {
+
+        .table thead th,
+        .table tbody td {
+            font-size: 0.9rem;
+        }
+    }
+
+    @@media (max-width: 767.98px) {
+        .page-title {
+            font-size: 1.45rem;
+        }
+
+        .detail-panel {
+            padding: 0.9rem;
+        }
+
+        .table thead th,
+        .table tbody td {
+            font-size: 0.85rem;
+            padding: 0.8rem 0.7rem;
+        }
+    }
+</style>
+
+<div class="container py-4">
+    <div class="mb-4">
+        <h2 class="page-title mb-1">ประวัติการสั่งซื้อ</h2>
+        <p class="page-subtitle">ดูรายการสั่งซื้อที่ผ่านมา โปรโมชั่น และสถานะรีวิวของคุณ</p>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert-clean-success">@TempData["Success"]</div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert-clean-danger">@TempData["Error"]</div>
+    }
+
+    @if (Model == null || !Model.Any())
+    {
+        <div class="card empty-card">
+            <div class="card-body text-center py-5">
+                <h5 class="fw-bold mb-2">ยังไม่มีประวัติการสั่งซื้อ</h5>
+                <p class="text-muted mb-0">เมื่อคุณสั่งอาหารแล้ว รายการจะมาแสดงที่หน้านี้</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="history-table-wrap">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>เลขออเดอร์</th>
+                            <th>วันเวลา</th>
+                            <th>โปรโมชัน</th>
+                            <th class="text-end">ก่อนลด</th>
+                            <th class="text-end">ส่วนลด</th>
+                            <th class="text-end">สุทธิ</th>
+                            <th>สถานะออเดอร์</th>
+                            <th>สถานะรีวิว</th>
+                            <th class="text-center">รายละเอียด</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var order in Model)
+                        {
+                            var collapseId = "detail_" + order.OrderId;
+                            var itemsOfOrder = orderItems.Where(x => x.OrderId == order.OrderId).ToList();
+
+                            <tr>
+                                <td class="order-id">@order.OrderId</td>
+
+                                <td>
+                                    <div class="order-date">@order.OrderDate.ToString("dd/MM/yyyy")</div>
+                                    <div class="order-time">@order.OrderTime.ToString(@"HH\:mm")</div>
+                                </td>
+
+                                <td>
+                                    @if (order.Promotion != null)
+                                    {
+                                        <div class="promotion-text">@GetPromotionText(order)</div>
+
+                                        @if ((order.DiscountAmount ?? 0m) > 0m)
+                                        {
+                                            <div class="promotion-sub">ใช้โปรสำเร็จ</div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+
+                                <td class="text-end">
+                                    @order.TotalPrice.ToString("N2") ฿
+                                </td>
+
+                                <td class="text-end">
+                                    @if ((order.DiscountAmount ?? 0m) > 0m)
+                                    {
+                                        <span class="price-discount">-@((order.DiscountAmount ?? 0m).ToString("N2")) ฿</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">0.00 ฿</span>
+                                    }
+                                </td>
+
+                                <td class="text-end">
+                                    <div class="price-main">@order.FinalPrice.ToString("N2") ฿</div>
+                                    <div class="points-earned">+@(order.PointsEarned ?? 0) แต้ม</div>
+                                </td>
+
+                                <td>
+                                    <span class="badge status-badge-clean @GetOrderStatusBadgeClass(order.OrderStatus)">
+                                        @GetOrderStatusText(order.OrderStatus)
+                                    </span>
+                                </td>
+
+                                <td>
+                                    @if (order.OrderStatus == 7)
+                                    {
+                                        <span class="badge status-badge-clean @GetReviewDecisionBadgeClass(order.ReviewDecision)">
+                                            @GetReviewDecisionText(order.ReviewDecision)
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+
+                                <td class="text-center">
+                                    <button class="btn btn-detail-clean" type="button" data-bs-toggle="collapse"
+                                            data-bs-target="#@collapseId" aria-expanded="false" aria-controls="@collapseId">
+                                        ดูรายละเอียด
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <tr class="detail-row">
+                                <td colspan="9" class="p-0 border-0">
+                                    <div class="collapse" id="@collapseId">
+                                        <div class="detail-panel">
+                                            <div class="row g-3">
+                                                <div class="col-12 col-lg-8">
+                                                    <div class="card detail-card">
+                                                        <div class="card-body">
+                                                            <h6 class="section-heading">รายการอาหารในออเดอร์</h6>
+
+                                                            @if (itemsOfOrder.Any())
+                                                            {
+                                                                <div class="table-responsive">
+                                                                    <table class="table table-sm align-middle mb-0">
+                                                                        <thead>
+                                                                            <tr>
+                                                                                <th>เมนู</th>
+                                                                                <th class="text-center">จำนวน</th>
+                                                                                <th class="text-end">ราคาต่อชิ้น</th>
+                                                                                <th class="text-end">รวม</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            @foreach (var item in itemsOfOrder)
+                                                                            {
+                                                                                var menu = allMenus.FirstOrDefault(m => m.MenuId ==
+                                                                item.MenuId);
+
+                                                                                string imagePath = "/img/default-food.png";
+                                                                                if (!string.IsNullOrWhiteSpace(menu?.MenuImage))
+                                                                                {
+                                                                                    imagePath = Url.Content(menu.MenuImage.StartsWith("/")
+                                                                                        ? menu.MenuImage
+                                                                                        : "/img/" + menu.MenuImage);
+                                                                                }
+
+                                                                                <tr>
+                                                                                    <td>
+                                                                                        <div class="d-flex align-items-center gap-2">
+                                                                                            <img src="@imagePath" alt="menu"
+                                                                                                 class="menu-thumb"
+                                                                                                 onerror="this.onerror=null;this.src='/img/default-food.png';" />
+                                                                                            <div>
+                                                                                                <div class="menu-name">
+                                                                                                    @((menu?.MenuName) ?? item.MenuId)
+                                                                                                </div>
+                                                                                                <div class="menu-sub">Menu ID:
+                                                                                                    @item.MenuId</div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </td>
+
+                                                                                        <td class="text-center">@item.Quantity</td>
+
+                                                                                        <td class="text-end">
+                                                                                            @item.Price.ToString("N2") ฿
+                                                                                        </td>
+
+                                                                                        <td class="text-end fw-semibold">
+                                                                                            @((item.Price * item.Quantity).ToString("N2")) ฿
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                }
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                }
+                                                            else
+                                                                {
+                                                                    <div class="text-muted">ไม่พบรายการอาหารในออเดอร์นี้</div>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="col-12 col-lg-4">
+                                                        <div class="card detail-card h-100">
+                                                            <div class="card-body">
+                                                                <h6 class="section-heading">สรุปออเดอร์</h6>
+
+                                                                <div class="summary-item">
+                                                                    <span class="summary-label">เลขออเดอร์</span>
+                                                                    <span class="summary-value">@order.OrderId</span>
+                                                                </div>
+
+                                                                <div class="summary-item">
+                                                                    <span class="summary-label">ราคารวมก่อนลด</span>
+                                                                    <span class="summary-value">@order.TotalPrice.ToString("N2")
+                                                                        ฿</span>
+                                                                    </div>
+
+                                                                    <div class="summary-item">
+                                                                        <span class="summary-label">ส่วนลด</span>
+                                                                        <span class="summary-value red">-@((order.DiscountAmount ??
+                                                                                                                                        0m).ToString("N2")) ฿</span>
+                                                                        </div>
+
+                                                                        <div class="summary-item">
+                                                                            <span class="summary-label">ยอดสุทธิ</span>
+                                                                            <span class="summary-value red">@order.FinalPrice.ToString("N2")
+                                                                                ฿</span>
+                                                                            </div>
+
+                                                                            <div class="summary-item">
+                                                                                <span class="summary-label">แต้มที่ได้รับ</span>
+                                                                                <span class="summary-value">+@(order.PointsEarned ?? 0)</span>
+                                                                            </div>
+
+                                                                            <hr class="summary-divider" />
+
+                                                                            <div class="mb-3">
+                                                                                <div class="summary-label mb-1">โปรโมชัน</div>
+                                                                                @if (order.Promotion != null)
+                                                                                {
+                                                                                    <div class="summary-value text-start" style="color:#2F6F4F;">
+                                                                                        @GetPromotionText(order)</div>
+                                                                                    }
+                                                                else
+                                                                                    {
+                                                                                        <div class="text-muted">ไม่มี</div>
+                                                                                    }
+                                                                                </div>
+
+                                                                                <div class="mb-3">
+                                                                                    <div class="summary-label mb-1">สถานะออเดอร์</div>
+                                                                                    <span
+                                                                                        class="badge status-badge-clean @GetOrderStatusBadgeClass(order.OrderStatus)">
+                                                                                        @GetOrderStatusText(order.OrderStatus)
+                                                                                    </span>
+                                                                                </div>
+
+                                                                                @if (order.OrderStatus == 7)
+                                                                                {
+                                                                                    <div class="mb-3">
+                                                                                        <div class="summary-label mb-1">สถานะรีวิว</div>
+                                                                                        <span
+                                                                                            class="badge status-badge-clean @GetReviewDecisionBadgeClass(order.ReviewDecision)">
+                                                                                            @GetReviewDecisionText(order.ReviewDecision)
+                                                                                        </span>
+                                                                                    </div>
+                                                                                }
+
+                                                                                @if (!string.IsNullOrWhiteSpace(order.PaymentMethod))
+                                                                                {
+                                                                                    <div class="mb-3">
+                                                                                        <div class="summary-label mb-1">ช่องทางชำระเงิน</div>
+                                                                                        <div class="summary-value text-start">@order.PaymentMethod</div>
+                                                                                    </div>
+                                                                                }
+
+                                                                                @if (!string.IsNullOrWhiteSpace(order.OrderNote))
+                                                                                {
+                                                                                    <div class="mb-3">
+                                                                                        <div class="summary-label mb-1">หมายเหตุ</div>
+                                                                                        <div class="summary-value text-start" style="font-weight:500;">
+                                                                                            @order.OrderNote</div>
+                                                                                        </div>
+                                                                                    }
+
+                                                                                    @if (!string.IsNullOrWhiteSpace(order.PaymentSlip))
+                                                                                    {
+                                                                                        <div class="mb-2">
+                                                                                            <div class="summary-label mb-2">สลิปการชำระเงิน</div>
+                                                                                            <a href="@Url.Content("~/img/slips/" + order.PaymentSlip)"
+                                                                                                   target="_blank" class="slip-btn">
+                                                                                                ดูสลิป
+                                                                                            </a>
+                                                                                        </div>
+                                                                                    }
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            }
+                        </div>

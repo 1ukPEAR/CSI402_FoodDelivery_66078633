@@ -1,0 +1,1032 @@
+@model List<WebApplication1.Models.db.FoodMenu>
+@using WebApplication1.Models.db
+@using System.Text.Json
+
+@{
+    Layout = "_NavbarUserLayout";
+
+    var menuTypes = ViewBag.MenuTypes as List<FoodMenutype>;
+
+    // รองรับทั้งชื่อใหม่และชื่อเก่า
+    var promotions =
+        (ViewBag.ActivePromotions as List<FoodPromotion>)
+        ?? (ViewBag.Promotions as List<FoodPromotion>)
+        ?? new List<FoodPromotion>();
+
+    var promotionMenus = ViewBag.PromotionMenus as List<FoodPromotionMenu> ?? new List<FoodPromotionMenu>();
+
+    // ใช้เมนูโชว์บนการ์ดโปร (ถ้ามี)
+    var promoDisplayMenus = ViewBag.PromoDisplayMenus as Dictionary<string, FoodMenu> ?? new Dictionary<string, FoodMenu>();
+
+    // เรียงโปรให้รองรับทั้ง DiscountValue / DiscountPercent
+    var activePromotions = promotions
+        .OrderByDescending(p => p.DiscountValue > 0 ? p.DiscountValue : (decimal)(p.DiscountPercent ?? 0))
+        .ThenBy(p => p.StartDate)
+        .ToList();
+}
+
+<link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+    body,
+.container,
+.container-fluid,
+.card,
+.btn,
+.form-control,
+.form-select,
+.modal-content,
+.modal-title,
+.alert,
+h1, h2, h3, h4, h5, h6,
+.hero-title,
+.section-title,
+.card-title {
+    font-family: 'Prompt', sans-serif !important;
+}
+
+    :root {
+        --primary-red: #AA132A;
+        --secondary-gold: #E9C372;
+        --secondary-soft: #E0C5A7;
+        --bg-main: #FDF7EA;
+        --bg-soft: #F1E2C7;
+        --accent-green: #7E8364;
+        --navy: #003049;
+    }
+
+    body {
+        background: var(--bg-main);
+    }
+
+    .menu-page-wrap {
+        background: var(--bg-main);
+        min-height: 100vh;
+    }
+
+    /* =========================
+       HERO SECTION
+    ========================= */
+    .hero-section {
+        position: relative;
+        border-radius: 28px;
+        overflow: hidden;
+        min-height: 430px;
+        background-image:
+            linear-gradient(rgba(0, 48, 73, 0.30), rgba(0, 48, 73, 0.30)),
+            url('/img/รูปพื้นหลัง.jpg');
+        background-size: cover;
+        background-position: center;
+        box-shadow: 0 14px 40px rgba(0, 48, 73, 0.08);
+        margin-top: 18px;
+        border: 1px solid rgba(224, 197, 167, 0.45);
+    }
+
+    .hero-content {
+        min-height: 430px;
+        display: flex;
+        align-items: center;
+        padding: 56px 60px;
+    }
+
+    .hero-text-wrap {
+        max-width: 620px;
+    }
+
+    .hero-badge {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.18);
+        color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: 999px;
+        padding: 8px 18px;
+        font-size: 14px;
+        font-weight: 400;
+        margin-bottom: 18px;
+        backdrop-filter: blur(6px);
+    }
+
+    .hero-title {
+        color: #fff;
+        font-size: clamp(2.1rem, 4vw, 4rem);
+        font-weight: 600;
+        line-height: 1.15;
+        margin-bottom: 14px;
+        letter-spacing: 0.2px;
+    }
+
+    .hero-subtitle {
+        color: rgba(255, 255, 255, 0.92);
+        font-size: 1.08rem;
+        font-weight: 300;
+        line-height: 1.8;
+        margin-bottom: 0;
+        max-width: 560px;
+    }
+
+    /* =========================
+       SECTION TITLE
+    ========================= */
+    .section-title {
+        color: var(--navy);
+        font-weight: 600;
+        font-size: clamp(2rem, 3vw, 3rem);
+        text-align: center;
+        margin-bottom: 18px;
+        letter-spacing: 0.3px;
+    }
+
+    .section-subtitle {
+        text-align: center;
+        color: #6b7280;
+        font-size: 1rem;
+        margin-top: -4px;
+        margin-bottom: 32px;
+    }
+
+    /* =========================
+       PROMO CARD
+    ========================= */
+    .promo-card {
+        border: 1px solid rgba(224, 197, 167, 0.55);
+        box-shadow: 0 10px 28px rgba(0, 48, 73, 0.05);
+        transition: all 0.25s ease;
+        background: #fff;
+    }
+
+    .promo-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 18px 34px rgba(0, 48, 73, 0.08);
+    }
+
+    .promo-badge {
+        background: var(--primary-red) !important;
+        font-weight: 500;
+        font-size: 13px;
+    }
+
+    .promo-price {
+        color: var(--primary-red) !important;
+    }
+
+    /* =========================
+       MENU CARD
+    ========================= */
+    .menu-card {
+        border: 1px solid rgba(224, 197, 167, 0.45);
+        box-shadow: 0 10px 24px rgba(0, 48, 73, 0.05);
+        transition: all 0.25s ease;
+        background: #fff;
+    }
+
+    .menu-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 18px 34px rgba(0, 48, 73, 0.08);
+    }
+
+    .menu-card .card-title {
+        color: var(--navy);
+        font-weight: 600;
+    }
+
+    .menu-price {
+        color: var(--primary-red) !important;
+        font-weight: 600;
+    }
+
+    .btn-brand {
+        background: var(--primary-red);
+        border: none;
+        color: #fff;
+        font-weight: 500;
+    }
+
+    .btn-brand:hover {
+        background: #8f1023;
+        color: #fff;
+    }
+
+    .btn-brand:focus,
+    .btn-brand:active {
+        background: #8f1023 !important;
+        color: #fff !important;
+        box-shadow: none !important;
+    }
+
+    .note-box {
+        background: #fffaf0;
+        border: 1px solid rgba(233, 195, 114, 0.45);
+        color: var(--navy);
+    }
+
+    .menu-option-list {
+        padding-left: 18px;
+        margin-bottom: 0;
+    }
+
+    .menu-option-list li {
+        margin-bottom: 2px;
+    }
+
+    /* =========================
+       MODAL STYLE
+    ========================= */
+    .modal-content {
+        border-radius: 24px !important;
+    }
+
+    .modal .btn-secondary {
+        border: none;
+        background: #6c757d;
+    }
+
+    .modal .btn-success {
+        border: none;
+        background: var(--accent-green);
+    }
+
+    .modal .btn-success:hover {
+        background: #6d7356;
+    }
+
+    @@media (max-width: 991.98px) {
+        .hero-section {
+            min-height: 360px;
+        }
+
+        .hero-content {
+            min-height: 360px;
+            padding: 38px 28px;
+        }
+
+        .hero-title {
+            font-size: 2rem;
+        }
+
+        .hero-subtitle {
+            font-size: 0.98rem;
+            line-height: 1.7;
+        }
+    }
+
+    @@media (max-width: 576px) {
+        .hero-section {
+            border-radius: 20px;
+            min-height: 320px;
+        }
+
+        .hero-content {
+            min-height: 320px;
+            padding: 26px 20px;
+        }
+
+        .hero-badge {
+            font-size: 12px;
+            padding: 6px 14px;
+        }
+
+        .hero-title {
+            font-size: 1.7rem;
+        }
+
+        .hero-subtitle {
+            font-size: 0.92rem;
+        }
+    }
+</style>
+
+<div class="menu-page-wrap">
+    <div class="container py-3">
+
+        <!-- ========================= -->
+        <!-- HERO SECTION -->
+        <!-- ========================= -->
+        <section class="hero-section">
+            <div class="hero-content">
+                <div class="hero-text-wrap">
+                    <div class="hero-badge">ครัวขวัญฉุย • Homemade Thai Comfort Food</div>
+
+                    <h1 class="hero-title">
+                        Welcome to <br />
+                        Krua Khwan Chui!
+                    </h1>
+
+                    <p class="hero-subtitle">
+                        From our pan to your table, serving heartfelt dishes made like home.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================= -->
+        <!-- โปรโมชั่นแนะนำ -->
+        <!-- ========================= -->
+        <div class="pt-5">
+            <h1 class="section-title">โปรโมชันแนะนำ</h1>
+            <p class="section-subtitle">ดีลพิเศษประจำวัน อร่อยคุ้มกว่าเดิม</p>
+
+            @if (activePromotions.Any())
+            {
+                <div class="row g-4 mb-5">
+                    @foreach (var promo in activePromotions)
+                    {
+                        var menuIds = promotionMenus
+                            .Where(pm => pm.PromotionId == promo.PromotionId)
+                            .Select(pm => pm.MenuId)
+                            .Distinct()
+                            .ToList();
+
+                        // ใช้ Model เป็นเมนูที่กดได้จริง (ต้องอยู่ในหน้า + เปิดขาย)
+                        var menusInPromo = (Model ?? new List<FoodMenu>())
+                            .Where(m => menuIds.Contains(m.MenuId))
+                            .ToList();
+
+                        // ใช้เมนูตัวโชว์จาก Dictionary ก่อน (เอาไว้แสดงรูป)
+                        FoodMenu? firstMenu = null;
+                        if (promoDisplayMenus.ContainsKey(promo.PromotionId))
+                        {
+                            firstMenu = promoDisplayMenus[promo.PromotionId];
+                        }
+                        else
+                        {
+                            firstMenu = menusInPromo.FirstOrDefault();
+                        }
+
+                        // กันรูปแตก
+                        var promoImg = "/img/menu/default-food.jpg";
+                        if (firstMenu != null)
+                        {
+                            promoImg = string.IsNullOrWhiteSpace(firstMenu.MenuImage)
+                                ? "/img/menu/default-food.jpg"
+                                : (firstMenu.MenuImage.StartsWith("/") ? firstMenu.MenuImage : "/img/menu/" + firstMenu.MenuImage);
+                        }
+
+                        string discountType = string.IsNullOrWhiteSpace(promo.DiscountType)
+                            ? "PERCENT"
+                            : promo.DiscountType!.Trim().ToUpper();
+
+                        decimal discountValue = promo.DiscountValue > 0
+                            ? promo.DiscountValue
+                            : (promo.DiscountPercent ?? 0);
+
+                        string discountLabel = discountType == "AMOUNT"
+                            ? $"ลด ฿{discountValue:0.00}"
+                            : $"ลด {discountValue:0.##}%";
+
+                        bool canUsePromo = menusInPromo.Any();
+
+                        <div class="col-12 col-md-6 col-lg-4">
+                            <div class="card promo-card border-0 rounded-4 overflow-hidden h-100">
+                                <img src="@Url.Content(promoImg)"
+                                     alt="@promo.PromotionName"
+                                     class="w-100"
+                                     style="height: 160px; object-fit: cover;"
+                                     onerror="this.onerror=null;this.src='@Url.Content("/img/menu/default-food.jpg")';" />
+
+                                <div class="card-body d-flex flex-column p-3">
+                                    <div class="mb-2">
+                                        <span class="badge promo-badge px-3 py-2 rounded-3">
+                                            🔥 โปรโมชันแนะนำ
+                                        </span>
+                                    </div>
+
+                                    <h4 class="fw-bold mb-2 text-truncate">@promo.PromotionName</h4>
+
+                                    <div class="fw-bold promo-price fs-3 mb-2">
+                                        @discountLabel
+                                    </div>
+
+                                    <p class="text-muted mb-3 small" style="min-height: 42px;">
+                                        @(string.IsNullOrWhiteSpace(promo.DescriptionPro)
+                                            ? $"โปรพิเศษ {discountLabel} สำหรับเมนูที่ร่วมรายการ"
+                                            : promo.DescriptionPro)
+                                    </p>
+
+                                    @if (promo.StartDate.HasValue || promo.EndDate.HasValue)
+                                    {
+                                        <small class="text-secondary d-block mb-3">
+                                            @(promo.StartDate.HasValue ? promo.StartDate.Value.ToString("dd/MM/yyyy HH:mm") : "-")
+                                            -
+                                            @(promo.EndDate.HasValue ? promo.EndDate.Value.ToString("dd/MM/yyyy HH:mm") : "-")
+                                        </small>
+                                    }
+
+                                    @if (menusInPromo.Any())
+                                    {
+                                        <div class="mb-3">
+                                            <div class="fw-semibold small mb-2">เมนูที่ร่วมโปร:</div>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                @foreach (var menu in menusInPromo.Take(2))
+                                                {
+                                                    <span class="badge bg-light text-dark border px-2 py-2">@menu.MenuName</span>
+                                                }
+
+                                                @if (menusInPromo.Count > 2)
+                                                {
+                                                    <span class="badge bg-secondary px-2 py-2">+@(menusInPromo.Count - 2)</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="mb-3">
+                                            <div class="small text-muted">
+                                                ยังไม่มีเมนูที่เปิดขายอยู่ในโปรนี้
+                                            </div>
+                                        </div>
+                                    }
+
+                                    <button type="button"
+                                            class="btn @(canUsePromo ? "btn-brand" : "btn-secondary") rounded-3 mt-auto"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#promotionSelectModal_@promo.PromotionId"
+                                            @(canUsePromo ? "" : "disabled")>
+                                        ใช้โปรนี้
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Modal ของแต่ละโปร -->
+                        <div class="modal fade" id="promotionSelectModal_@promo.PromotionId" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered modal-lg">
+                                <div class="modal-content rounded-4 border-0 shadow-lg">
+                                    <div class="modal-header border-0">
+                                        <h4 class="modal-title fw-bold">@promo.PromotionName</h4>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+
+                                    <div class="modal-body">
+                                        <p class="text-muted mb-4">
+                                            เลือกเมนูที่ต้องการจากโปรนี้ แล้วระบบจะคิดราคาลดเฉพาะรายการที่กดผ่านโปรนี้เท่านั้น
+                                        </p>
+
+                                        @if (menusInPromo.Any())
+                                        {
+                                            <div class="row g-3">
+                                                @foreach (var menu in menusInPromo)
+                                                {
+                                                    var optionsJson = "[]";
+                                                    if (menu.FoodMenuoptions != null && menu.FoodMenuoptions.Any())
+                                                    {
+                                                        optionsJson = JsonSerializer.Serialize(
+                                                            menu.FoodMenuoptions.Select(o => new
+                                                            {
+                                                                optionId = o.OptionId,
+                                                                optionName = o.OptionName,
+                                                                extraPrice = o.ExtraPrice
+                                                            })
+                                                        );
+                                                    }
+
+                                                    var promoImgPath = string.IsNullOrWhiteSpace(menu.MenuImage)
+                                                        ? "/img/menu/default-food.jpg"
+                                                        : (menu.MenuImage.StartsWith("/") ? menu.MenuImage : "/img/menu/" + menu.MenuImage);
+
+                                                    decimal originalPrice = menu.MenuPrice ?? 0m;
+                                                    decimal finalPrice = originalPrice;
+
+                                                    if (discountType == "AMOUNT")
+                                                    {
+                                                        finalPrice = originalPrice - discountValue;
+                                                    }
+                                                    else
+                                                    {
+                                                        finalPrice = originalPrice - (originalPrice * discountValue / 100m);
+                                                    }
+
+                                                    if (finalPrice < 0)
+                                                    {
+                                                        finalPrice = 0;
+                                                    }
+
+                                                    <div class="col-12 col-md-6">
+                                                        <div class="border rounded-4 p-3 h-100 bg-light">
+                                                            <div class="d-flex gap-3">
+                                                                <img src="@Url.Content(promoImgPath)"
+                                                                     alt="@menu.MenuName"
+                                                                     style="width:90px; height:90px; object-fit:cover; border-radius:14px;"
+                                                                     onerror="this.onerror=null;this.src='@Url.Content("/img/menu/default-food.jpg")';" />
+
+                                                                <div class="flex-grow-1">
+                                                                    <h6 class="fw-bold mb-1">@menu.MenuName</h6>
+
+                                                                    <div class="small text-muted text-decoration-line-through">
+                                                                        ฿@originalPrice.ToString("0.00")
+                                                                    </div>
+                                                                    <div class="fw-bold promo-price fs-5 mb-2">
+                                                                        ฿@finalPrice.ToString("0.00")
+                                                                    </div>
+
+                                                                    <!-- ปุ่มนี้ส่ง promotionId ไป CartController ผ่าน modal หลัก -->
+                                                                    <button type="button"
+                                                                            class="btn btn-brand btn-sm rounded-3 fw-semibold open-add-cart-modal"
+                                                                            data-menu-id="@menu.MenuId"
+                                                                            data-menu-name="@menu.MenuName"
+                                                                            data-menu-price="@finalPrice.ToString("0.00")"
+                                                                            data-original-price="@originalPrice.ToString("0.00")"
+                                                                            data-menu-image="@promoImgPath"
+                                                                            data-menu-description="ใช้โปร: @promo.PromotionName"
+                                                                            data-menu-options='@Html.Raw(optionsJson)'
+                                                                            data-promotion-id="@promo.PromotionId"
+                                                                            data-promotion-name="@promo.PromotionName"
+                                                                            data-source-promo-modal="promotionSelectModal_@promo.PromotionId">
+                                                                        <i class='bx bx-cart-add me-1'></i> ใช้โปรนี้
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="alert alert-warning rounded-4 mb-0">
+                                                โปรนี้ยังไม่มีเมนูที่เปิดขายอยู่ในขณะนี้
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <div class="modal-footer border-0">
+                                        <button type="button" class="btn btn-secondary rounded-3" data-bs-dismiss="modal">ปิด</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="mb-5">
+                    <div class="text-center py-5 bg-light rounded-4 border">
+                        <h5 class="mb-2">ยังไม่มีโปรโมชันแนะนำ</h5>
+                        <p class="text-muted mb-0">ตอนนี้ยังไม่มีโปรโมชันที่กำลังใช้งาน</p>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- ========================= -->
+        <!-- เมนูอาหารทั้งหมด -->
+        <!-- ========================= -->
+        <h1 class="section-title mt-2">เมนูอาหารทั้งหมด</h1>
+        <p class="section-subtitle">เลือกเมนูโปรดของคุณ แล้วเพิ่มลงตะกร้าได้เลย</p>
+
+        <div class="alert note-box rounded-4 mb-4">
+            <strong>หมายเหตุ:</strong> หากต้องการใช้ส่วนลด กรุณากดสั่งผ่านปุ่ม <strong>“ใช้โปรนี้”</strong>
+            ในส่วนโปรโมชันด้านบนเท่านั้น
+            หากกดเพิ่มจากรายการเมนูด้านล่าง ระบบจะคิด <strong>ราคาเต็ม</strong>
+        </div>
+
+        <div class="row g-4">
+            @if (Model != null && Model.Any())
+            {
+                foreach (var item in Model)
+                {
+                    var optionsJson = "[]";
+
+                    if (item.FoodMenuoptions != null && item.FoodMenuoptions.Any())
+                    {
+                        optionsJson = JsonSerializer.Serialize(
+                            item.FoodMenuoptions.Select(o => new
+                            {
+                                optionId = o.OptionId,
+                                optionName = o.OptionName,
+                                extraPrice = o.ExtraPrice
+                            })
+                        );
+                    }
+
+                    var imgPath = string.IsNullOrWhiteSpace(item.MenuImage)
+                        ? "/img/menu/default-food.jpg"
+                        : (item.MenuImage.StartsWith("/") ? item.MenuImage : "/img/menu/" + item.MenuImage);
+
+                    decimal originalPrice = item.MenuPrice ?? 0m;
+
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <div class="card menu-card border-0 h-100 rounded-4 overflow-hidden position-relative">
+
+                            <img src="@Url.Content(imgPath)"
+                                 class="card-img-top"
+                                 alt="@item.MenuName"
+                                 style="width:100%; height:180px; object-fit:cover;"
+                                 onerror="this.onerror=null;this.src='@Url.Content("/img/menu/default-food.jpg")';" />
+
+                            <div class="card-body d-flex flex-column">
+                                <h5 class="card-title mb-2">@item.MenuName</h5>
+
+                                <p class="mb-1 text-muted small">
+                                    Type: @(item.MenuType != null ? item.MenuType.MenuTypeName : "-")
+                                </p>
+
+                                <p class="mb-2 menu-price fs-5">
+                                    ฿@originalPrice.ToString("0.00")
+                                </p>
+
+                                @if (item.FoodMenuoptions != null && item.FoodMenuoptions.Any())
+                                {
+                                    <div class="mt-2 mb-3">
+                                        <small class="fw-bold text-secondary">Extra Options:</small>
+                                        <ul class="menu-option-list small">
+                                            @foreach (var opt in item.FoodMenuoptions)
+                                            {
+                                                <li>@opt.OptionName (+฿@opt.ExtraPrice.ToString("0.00"))</li>
+                                            }
+                                        </ul>
+                                    </div>
+                                }
+
+                                <!-- ปุ่มใส่ตะกร้า (ราคาเต็มเท่านั้น) -->
+                                <div class="mt-auto pt-3">
+                                    <button type="button"
+                                            class="btn btn-brand w-100 rounded-3 fw-semibold open-add-cart-modal"
+                                            data-menu-id="@item.MenuId"
+                                            data-menu-name="@item.MenuName"
+                                            data-menu-price="@originalPrice.ToString("0.00")"
+                                            data-original-price="@originalPrice.ToString("0.00")"
+                                            data-menu-image="@imgPath"
+                                            data-menu-description="@(item.MenuType != null ? item.MenuType.MenuTypeName : "เมนูแนะนำจากร้าน")"
+                                            data-menu-options='@Html.Raw(optionsJson)'
+                                            data-promotion-id=""
+                                            data-promotion-name="">
+                                        <i class='bx bx-cart-add me-1'></i> Add to Cart
+                                    </button>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="col-12">
+                    <div class="text-center py-5 bg-light rounded-4 border">
+                        <h5 class="mb-2">No menu yet</h5>
+                        <p class="text-muted mb-0">No menu available right now.</p>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- ========================= -->
+<!-- Payment Modal -->
+<!-- ========================= -->
+<div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content rounded-4 border-0 shadow">
+
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold" id="paymentModalLabel">ชำระเงิน</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+                <form asp-controller="Order" asp-action="ConfirmPayment" method="post" enctype="multipart/form-data">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">เลือกช่องทางการชำระเงิน</label>
+                        <select name="PaymentMethod" id="paymentMethod" class="form-select rounded-3" required onchange="toggleSlipUpload()">
+                            <option value="">-- กรุณาเลือก --</option>
+                            <option value="PromptPay">พร้อมเพย์</option>
+                            <option value="BankTransfer">โอนผ่านธนาคาร</option>
+                            <option value="CashOnDelivery">ชำระเงินปลายทาง</option>
+                        </select>
+                    </div>
+
+                    <div id="paymentInfoBox" class="alert alert-warning rounded-3" style="display:none;">
+                        <div><strong>ชื่อบัญชี:</strong> ครัวขวัญฉุย</div>
+                        <div><strong>ธนาคาร:</strong> กสิกรไทย</div>
+                        <div><strong>เลขบัญชี:</strong> 123-4-56789-0</div>
+                        <div><strong>พร้อมเพย์:</strong> 081-234-5678</div>
+                    </div>
+
+                    <div class="mb-3" id="slipUploadBox" style="display:none;">
+                        <label class="form-label fw-bold">อัปโหลดสลิปการชำระเงิน</label>
+                        <input type="file" name="SlipFile" class="form-control rounded-3" accept="image/*" id="slipFileInput">
+                        <small class="text-muted">รองรับไฟล์รูปภาพ .jpg .png .jpeg</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">หมายเหตุเพิ่มเติม</label>
+                        <textarea name="OrderNote" class="form-control rounded-3" rows="3" placeholder="เช่น ไม่ใส่ผัก / ขอช้อนส้อมเพิ่ม"></textarea>
+                    </div>
+
+                    <div class="modal-footer border-0 px-0 pb-0">
+                        <button type="button" class="btn btn-secondary rounded-3" data-bs-dismiss="modal">ยกเลิก</button>
+                        <button type="submit" class="btn btn-success rounded-3">ยืนยันการชำระเงิน</button>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ========================= -->
+<!-- Modal: Add to Cart -->
+<!-- ========================= -->
+<div class="modal fade" id="addToCartModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content rounded-4 border-0 shadow-lg">
+            <div class="modal-header border-0">
+                <h4 class="modal-title fw-bold">เพิ่มลงตะกร้า</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <form id="addToCartForm" asp-controller="Cart" asp-action="AddToCart" method="post">
+                    @Html.AntiForgeryToken()
+
+                    <input type="hidden" name="menuId" id="cartMenuId" />
+                    <input type="hidden" name="quantity" id="cartQuantityInput" value="1" />
+                    <input type="hidden" name="promotionId" id="cartPromotionId" />
+
+                    <div class="row g-4">
+                        <div class="col-md-5">
+                            <img id="cartMenuImage" src="/img/menu/default-food.jpg"
+                                 class="img-fluid rounded-4 shadow-sm"
+                                 style="width:100%; height:260px; object-fit:cover;"
+                                 onerror="this.onerror=null;this.src='@Url.Content("/img/menu/default-food.jpg")';" />
+                        </div>
+
+                        <div class="col-md-7">
+                            <h3 class="fw-bold mb-2" id="cartMenuName">ชื่อเมนู</h3>
+                            <p class="text-muted mb-2" id="cartMenuDescription">รายละเอียดเมนู</p>
+
+                            <div id="promoInfoBox" class="alert alert-danger rounded-3 py-2 px-3 mb-3" style="display:none;">
+                                <div class="fw-semibold">🎉 ใช้โปรโมชั่น: <span id="promoNameText"></span></div>
+                                <small>ส่วนลดจะใช้กับรายการนี้เท่านั้น</small>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="fw-semibold text-secondary">ราคาเริ่มต้น</div>
+                                <div class="fs-4 fw-bold promo-price">฿<span id="basePriceText">0.00</span></div>
+                                <div id="originalPriceBox" class="small text-muted text-decoration-line-through" style="display:none;">
+                                    ราคาเต็ม ฿<span id="originalPriceText">0.00</span>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label fw-semibold">จำนวน</label>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button type="button" class="btn btn-outline-secondary rounded-circle" id="btnDecreaseQty" style="width:40px; height:40px;">
+                                        <i class='bx bx-minus'></i>
+                                    </button>
+
+                                    <span id="quantityDisplay" class="fw-bold fs-5 px-3">1</span>
+
+                                    <button type="button" class="btn btn-outline-secondary rounded-circle" id="btnIncreaseQty" style="width:40px; height:40px;">
+                                        <i class='bx bx-plus'></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label fw-semibold">ตัวเลือกเพิ่มเติม</label>
+                                <div id="optionsContainer" class="border rounded-4 p-3 bg-light" style="max-height:220px; overflow-y:auto;">
+                                    <div class="text-muted">ไม่มีตัวเลือกเพิ่มเติม</div>
+                                </div>
+                            </div>
+
+                            <div class="border rounded-4 p-3" style="background:#fff7f7;">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>ราคาอาหาร</span>
+                                    <span>฿<span id="summaryBasePrice">0.00</span></span>
+                                </div>
+
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>ราคา Extra</span>
+                                    <span>฿<span id="summaryExtraPrice">0.00</span></span>
+                                </div>
+
+                                <hr />
+
+                                <div class="d-flex justify-content-between fw-bold fs-5 promo-price">
+                                    <span>รวมทั้งหมด</span>
+                                    <span>฿<span id="summaryTotalPrice">0.00</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer border-0 px-0 pt-4">
+                        <button type="button" class="btn btn-secondary rounded-3 px-4" data-bs-dismiss="modal">
+                            ยกเลิก
+                        </button>
+                        <button type="submit" class="btn btn-brand rounded-3 px-4">
+                            ยืนยันเพิ่มลงตะกร้า
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+@if (TempData["CartMessage"] != null)
+{
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            Swal.fire({
+                icon: 'success',
+                title: 'เพิ่มลงตะกร้าแล้ว',
+                html: '@Html.Raw(System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(TempData["CartMessage"]?.ToString() ?? ""))',
+                confirmButtonColor: '#AA132A'
+            });
+        });
+    </script>
+}
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const addToCartModalEl = document.getElementById("addToCartModal");
+        const addToCartModal = new bootstrap.Modal(addToCartModalEl);
+
+        const cartMenuId = document.getElementById("cartMenuId");
+        const cartPromotionId = document.getElementById("cartPromotionId");
+
+        const cartMenuImage = document.getElementById("cartMenuImage");
+        const cartMenuName = document.getElementById("cartMenuName");
+        const cartMenuDescription = document.getElementById("cartMenuDescription");
+        const basePriceText = document.getElementById("basePriceText");
+
+        const promoInfoBox = document.getElementById("promoInfoBox");
+        const promoNameText = document.getElementById("promoNameText");
+        const originalPriceBox = document.getElementById("originalPriceBox");
+        const originalPriceText = document.getElementById("originalPriceText");
+
+        const quantityDisplay = document.getElementById("quantityDisplay");
+        const cartQuantityInput = document.getElementById("cartQuantityInput");
+        const btnDecreaseQty = document.getElementById("btnDecreaseQty");
+        const btnIncreaseQty = document.getElementById("btnIncreaseQty");
+
+        const optionsContainer = document.getElementById("optionsContainer");
+
+        const summaryBasePrice = document.getElementById("summaryBasePrice");
+        const summaryExtraPrice = document.getElementById("summaryExtraPrice");
+        const summaryTotalPrice = document.getElementById("summaryTotalPrice");
+
+        let currentBasePrice = 0;
+        let currentQuantity = 1;
+
+        function safeParsePrice(value) {
+            const parsed = parseFloat(value);
+            return isNaN(parsed) ? 0 : parsed;
+        }
+
+        function updateSummary() {
+            const checkedOptions = document.querySelectorAll(".cart-option-checkbox:checked");
+            let extraTotalPerItem = 0;
+
+            checkedOptions.forEach(cb => {
+                extraTotalPerItem += safeParsePrice(cb.dataset.price || "0");
+            });
+
+            const baseTotal = currentBasePrice * currentQuantity;
+            const extraPriceTotal = extraTotalPerItem * currentQuantity;
+            const total = baseTotal + extraPriceTotal;
+
+            summaryBasePrice.textContent = baseTotal.toFixed(2);
+            summaryExtraPrice.textContent = extraPriceTotal.toFixed(2);
+            summaryTotalPrice.textContent = total.toFixed(2);
+
+            cartQuantityInput.value = currentQuantity;
+            quantityDisplay.textContent = currentQuantity;
+        }
+
+        btnDecreaseQty.addEventListener("click", function () {
+            if (currentQuantity > 1) {
+                currentQuantity--;
+                updateSummary();
+            }
+        });
+
+        btnIncreaseQty.addEventListener("click", function () {
+            currentQuantity++;
+            updateSummary();
+        });
+
+        document.querySelectorAll(".open-add-cart-modal").forEach(btn => {
+            btn.addEventListener("click", function () {
+                const menuId = this.dataset.menuId || "";
+                const menuName = this.dataset.menuName || "";
+                const menuPrice = safeParsePrice(this.dataset.menuPrice || "0");
+                const originalPrice = safeParsePrice(this.dataset.originalPrice || "0");
+                const menuImage = this.dataset.menuImage || "/img/menu/default-food.jpg";
+                const menuDescription = this.dataset.menuDescription || "";
+                const menuOptions = JSON.parse(this.dataset.menuOptions || "[]");
+                const promotionId = this.dataset.promotionId || "";
+                const promotionName = this.dataset.promotionName || "";
+                const sourcePromoModalId = this.dataset.sourcePromoModal || "";
+
+                // ถ้ามาจาก modal โปร -> ปิด modal โปรก่อน
+                if (sourcePromoModalId) {
+                    const sourcePromoModalEl = document.getElementById(sourcePromoModalId);
+                    if (sourcePromoModalEl) {
+                        const existingPromoModal = bootstrap.Modal.getInstance(sourcePromoModalEl);
+                        if (existingPromoModal) {
+                            existingPromoModal.hide();
+                        }
+                    }
+                }
+
+                // ส่งค่าจริงเข้า form
+                cartMenuId.value = menuId;
+                cartPromotionId.value = promotionId;
+
+                cartMenuName.textContent = menuName;
+                cartMenuDescription.textContent = menuDescription;
+                cartMenuImage.src = menuImage;
+                basePriceText.textContent = menuPrice.toFixed(2);
+
+                currentBasePrice = menuPrice;
+                currentQuantity = 1;
+
+                if (promotionId) {
+                    promoInfoBox.style.display = "block";
+                    promoNameText.textContent = promotionName || "โปรโมชั่นพิเศษ";
+
+                    if (originalPrice > menuPrice) {
+                        originalPriceBox.style.display = "block";
+                        originalPriceText.textContent = originalPrice.toFixed(2);
+                    } else {
+                        originalPriceBox.style.display = "none";
+                        originalPriceText.textContent = "0.00";
+                    }
+                } else {
+                    promoInfoBox.style.display = "none";
+                    promoNameText.textContent = "";
+                    originalPriceBox.style.display = "none";
+                    originalPriceText.textContent = "0.00";
+                }
+
+                if (Array.isArray(menuOptions) && menuOptions.length > 0) {
+                    optionsContainer.innerHTML = "";
+
+                    menuOptions.forEach((opt, index) => {
+                        const optionPrice = safeParsePrice(opt.extraPrice ?? 0);
+
+                        const optionHtml = `
+                            <div class="form-check mb-2">
+                                <input class="form-check-input cart-option-checkbox"
+                                       type="checkbox"
+                                       name="selectedOptionIds"
+                                       value="${opt.optionId}"
+                                       id="opt_${opt.optionId}_${index}"
+                                       data-price="${optionPrice}">
+                                <label class="form-check-label d-flex justify-content-between w-100" for="opt_${opt.optionId}_${index}">
+                                    <span>${opt.optionName ?? ""}</span>
+                                    <span class="text-danger">+฿${optionPrice.toFixed(2)}</span>
+                                </label>
+                            </div>
+                        `;
+                        optionsContainer.insertAdjacentHTML("beforeend", optionHtml);
+                    });
+                } else {
+                    optionsContainer.innerHTML = `<div class="text-muted">ไม่มีตัวเลือกเพิ่มเติม</div>`;
+                }
+
+                document.querySelectorAll(".cart-option-checkbox").forEach(cb => {
+                    cb.addEventListener("change", updateSummary);
+                });
+
+                updateSummary();
+
+                setTimeout(() => {
+                    addToCartModal.show();
+                }, sourcePromoModalId ? 250 : 0);
+            });
+        });
+    });
+</script>
+
+<script>
+    function toggleSlipUpload() {
+        const method = document.getElementById("paymentMethod").value;
+        const slipBox = document.getElementById("slipUploadBox");
+        const paymentInfo = document.getElementById("paymentInfoBox");
+        const slipInput = document.getElementById("slipFileInput");
+
+        if (method === "PromptPay" || method === "BankTransfer") {
+            slipBox.style.display = "block";
+            paymentInfo.style.display = "block";
+            slipInput.setAttribute("required", "required");
+        } else {
+            slipBox.style.display = "none";
+            paymentInfo.style.display = "none";
+            slipInput.removeAttribute("required");
+            slipInput.value = "";
+        }
+    }
+</script>

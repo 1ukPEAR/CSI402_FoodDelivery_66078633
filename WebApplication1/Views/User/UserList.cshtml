@@ -1,0 +1,636 @@
+@model List<WebApplication1.FoodViewModels.UserViewModel>
+
+@{
+    Layout = "_NavbarOwnerLayout";
+
+    var totalUsers = Model?.Count ?? 0;
+    var totalEmployees = Model?.Count(x => x.RoleId == "R002") ?? 0;
+    var activeUsers = Model?.Count(x => x.UserStatus == 1) ?? 0;
+    var inactiveUsers = Model?.Count(x => x.UserStatus != 1) ?? 0;
+}
+<style>
+    .owner-user-page {
+        color: #003049;
+        font-family: 'Prompt', sans-serif;
+        max-width: 100%;
+    }
+
+    .owner-user-page *,
+    .owner-user-page *::before,
+    .owner-user-page *::after,
+    .owner-modal *,
+    .owner-modal *::before,
+    .owner-modal *::after {
+        font-family: 'Prompt', sans-serif !important;
+    }
+
+    /* =========================
+       PAGE HEADER (เหมือนหน้าก่อนหน้า)
+    ========================= */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1.25rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.4rem;
+        padding: 0;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+    }
+
+    .page-header > div:first-child {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .page-title {
+        font-size: clamp(2.2rem, 3vw, 3.6rem);
+        font-weight: 800;
+        color: #003049;
+        line-height: 1.05;
+        letter-spacing: -0.03em;
+        margin: 0;
+    }
+
+    .page-subtitle {
+        margin-top: 0.55rem;
+        font-size: 1.05rem;
+        color: #6b7280;
+        line-height: 1.6;
+        max-width: 760px;
+    }
+
+    .btn-add-user {
+        background: #c1122f;
+        color: #fff;
+        border: none;
+        border-radius: 18px;
+        padding: 0.95rem 1.45rem;
+        font-weight: 700;
+        font-size: 0.98rem;
+        min-width: 170px;
+        box-shadow: 0 12px 24px rgba(193, 18, 47, 0.16);
+        transition: all 0.2s ease;
+    }
+
+    .btn-add-user:hover {
+        background: #a60f28;
+        color: #fff;
+        transform: translateY(-1px);
+        box-shadow: 0 14px 28px rgba(193, 18, 47, 0.2);
+    }
+
+    /* =========================
+       ALERT
+    ========================= */
+    .custom-alert {
+        border: none;
+        border-radius: 18px;
+        box-shadow: 0 8px 20px rgba(0, 48, 73, 0.05);
+        font-weight: 500;
+    }
+
+    .success-alert {
+        background: #ecfdf5;
+        color: #065f46;
+    }
+
+    .error-alert {
+        background: #fef2f2;
+        color: #991b1b;
+    }
+
+    /* =========================
+       TABLE CARD
+    ========================= */
+    .table-card {
+        background: #ffffff;
+        border: 1px solid #eadfca;
+        border-radius: 28px;
+        overflow: hidden;
+        box-shadow: 0 16px 34px rgba(0, 48, 73, 0.05);
+    }
+
+    .table-responsive {
+        border-radius: 28px;
+    }
+
+    /* =========================
+       TABLE
+    ========================= */
+    .user-table {
+        margin-bottom: 0;
+    }
+
+    .user-table thead th {
+        background: #fffaf1;
+        color: #6b7280;
+        font-size: 0.8rem;
+        font-weight: 800;
+        padding: 1rem 0.85rem;
+        border-bottom: 1px solid #efe5d4;
+        white-space: nowrap;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        text-align: center;
+    }
+
+    .user-table tbody td {
+        padding: 1rem 0.85rem;
+        border-color: #f3ecdf;
+        vertical-align: middle;
+        color: #003049;
+        font-size: 0.95rem;
+    }
+
+    .user-table tbody tr {
+        transition: all 0.18s ease;
+    }
+
+    .user-table tbody tr:hover {
+        background: #fffdf8;
+    }
+
+    .text-main {
+        color: #003049;
+    }
+
+    /* =========================
+       BADGES
+    ========================= */
+    .role-badge,
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem 0.9rem;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 800;
+        line-height: 1.2;
+        border: 1px solid transparent;
+        min-width: 92px;
+    }
+
+    .role-customer {
+        background: #eef6ff;
+        color: #0b5ed7;
+        border-color: #d9e8ff;
+    }
+
+    .role-employee {
+        background: #fff4d6;
+        color: #9a6700;
+        border-color: #f1dfb1;
+    }
+
+    .role-owner {
+        background: #eef2f7;
+        color: #334155;
+        border-color: #dbe3ec;
+    }
+
+    .role-unknown {
+        background: #f8fafc;
+        color: #64748b;
+        border-color: #e2e8f0;
+    }
+
+    .status-active {
+        background: #eaf8ef;
+        color: #198754;
+        border-color: #cfead8;
+    }
+
+    .status-inactive {
+        background: #fff0f3;
+        color: #AA132A;
+        border-color: #f1d9de;
+    }
+
+    /* =========================
+       ACTION BUTTONS
+    ========================= */
+    .btn-action {
+        border-radius: 12px;
+        padding: 0.5rem 0.85rem;
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 68px;
+        transition: all 0.18s ease;
+    }
+
+    .btn-action:hover {
+        transform: translateY(-1px);
+    }
+
+    .btn-edit {
+        background: #fff8ea;
+        color: #9a6700;
+        border: 1px solid #f1dfb1;
+    }
+
+    .btn-edit:hover {
+        background: #ffefc4;
+        color: #8a5a00;
+    }
+
+    .btn-delete {
+        background: #fff1f3;
+        color: #AA132A;
+        border: 1px solid #f1d9de;
+    }
+
+    .btn-delete:hover {
+        background: #ffe5ea;
+        color: #921024;
+    }
+
+    /* =========================
+       MODAL
+    ========================= */
+    .owner-modal .modal-dialog {
+        max-width: 760px;
+    }
+
+    .owner-modal-content {
+        border: 0;
+        border-radius: 28px;
+        overflow: hidden;
+        box-shadow: 0 26px 64px rgba(0, 0, 0, 0.16);
+        background: #fffdfa;
+    }
+
+    .owner-modal-header {
+        background: #c1122f;
+        color: #fff;
+        border: 0;
+        padding: 1rem 1.35rem;
+    }
+
+    .owner-modal-title {
+        font-weight: 800;
+        margin: 0;
+        font-size: 1.15rem;
+    }
+
+    .owner-modal-subtitle {
+        font-size: 0.88rem;
+        opacity: 0.92;
+        margin-top: 2px;
+    }
+
+    .owner-modal-body {
+        padding: 1.4rem;
+        background: #fffdfa;
+    }
+
+    .owner-label {
+        font-weight: 700;
+        color: #003049;
+        margin-bottom: 0.45rem;
+        font-size: 0.92rem;
+    }
+
+    .owner-input {
+        border-radius: 16px;
+        border: 1px solid #eadfca;
+        padding: 0.8rem 0.95rem;
+        color: #003049;
+        background: #fff;
+        box-shadow: none !important;
+        font-size: 0.95rem;
+    }
+
+    .owner-input:focus {
+        border-color: #d8c8aa;
+        box-shadow: 0 0 0 0.18rem rgba(216, 200, 170, 0.18) !important;
+    }
+
+    .owner-modal-footer {
+        border: 0;
+    }
+
+    .btn-cancel {
+        border-radius: 14px;
+        padding: 0.72rem 1rem;
+        font-weight: 700;
+        border: 1px solid #d8c8aa;
+        background: #fff;
+        color: #003049;
+    }
+
+    .btn-cancel:hover {
+        background: #fdf7ea;
+        color: #003049;
+    }
+
+    .btn-save {
+        border-radius: 14px;
+        padding: 0.72rem 1rem;
+        font-weight: 700;
+        border: 0;
+        background: #c1122f;
+        color: #fff;
+        box-shadow: 0 10px 20px rgba(170, 19, 42, 0.16);
+    }
+
+    .btn-save:hover {
+        background: #a60f28;
+        color: #fff;
+    }
+
+    /* =========================
+       RESPONSIVE
+    ========================= */
+    @@media (max-width: 991.98px) {
+        .page-title {
+            font-size: 1.9rem;
+        }
+
+        .page-subtitle {
+            font-size: 0.95rem;
+        }
+
+        .user-table th,
+        .user-table td {
+            font-size: 0.9rem;
+        }
+    }
+
+    @@media (max-width: 767.98px) {
+        .page-header {
+            align-items: stretch;
+        }
+
+        .btn-add-user {
+            width: 100%;
+            min-width: unset;
+        }
+
+        .page-title {
+            font-size: 1.6rem;
+        }
+
+        .page-subtitle {
+            font-size: 0.92rem;
+        }
+    }
+</style>
+
+<div class="container py-4 owner-user-page">
+
+    <!-- =========================
+         PAGE HEADER
+    ========================== -->
+    <div class="page-header mb-4">
+        <div>
+            <h2 class="page-title mb-2">จัดการผู้ใช้งาน</h2>
+            <p class="page-subtitle mb-0">
+                จัดการข้อมูลลูกค้า พนักงาน และเจ้าของร้าน พร้อมเพิ่มบัญชีพนักงานใหม่ได้จากหน้านี้
+            </p>
+        </div>
+
+        <button type="button"
+                class="btn btn-add-user"
+                data-bs-toggle="modal"
+                data-bs-target="#newUserModal">
+            + เพิ่มพนักงาน
+        </button>
+    </div>
+
+    <!-- =========================
+         ALERT
+    ========================== -->
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show custom-alert success-alert mb-4" role="alert">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show custom-alert error-alert mb-4" role="alert">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- =========================
+         TABLE CARD
+    ========================== -->
+    <div class="table-card">
+        @* <div class="table-card-header">
+            <div>
+                <h5 class="table-title mb-1">รายการผู้ใช้งาน</h5>
+                <div class="table-subtitle">แสดงข้อมูลผู้ใช้ทั้งหมดในระบบ พร้อมสิทธิ์และสถานะการใช้งาน</div>
+            </div>
+            <div class="table-chip">
+                @totalUsers รายการ
+            </div>
+        </div> *@
+
+        <div class="table-responsive">
+            <table class="table user-table align-middle mb-0">
+                <thead>
+                    <tr class="text-center">
+                        <th>User ID</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Register Date</th>
+                        <th style="width: 110px;">Edit</th>
+                        <th style="width: 120px;">Delete</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model != null && Model.Count > 0)
+                    {
+                        foreach (var item in Model)
+                        {
+                            bool isEmployee = item.RoleId == "R002";
+
+                            <tr>
+                                <td class="text-center fw-semibold text-main">@item.UserId</td>
+
+                                <td>
+                                    <div class="fw-semibold text-main">@item.UserName</div>
+                                </td>
+
+                                <!-- Role -->
+                                <td class="text-center">
+                                    @if (item.RoleId == "R001")
+                                    {
+                                        <span class="role-badge role-customer">Customer</span>
+                                    }
+                                    else if (item.RoleId == "R002")
+                                    {
+                                        <span class="role-badge role-employee">Employee</span>
+                                    }
+                                    else if (item.RoleId == "R003")
+                                    {
+                                        <span class="role-badge role-owner">Owner</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="role-badge role-unknown">
+                                            @(string.IsNullOrWhiteSpace(item.RoleId) ? "Unknown" : item.RoleId)
+                                        </span>
+                                    }
+                                </td>
+
+                                <td>
+                                    @(string.IsNullOrWhiteSpace(item.UserEmail) ? "-" : item.UserEmail)
+                                </td>
+
+                                <td class="text-center">
+                                    @(string.IsNullOrWhiteSpace(item.UserPhone) ? "-" : item.UserPhone)
+                                </td>
+
+                                <!-- Status -->
+                                <td class="text-center">
+                                    @if (item.UserStatus == 1)
+                                    {
+                                        <span class="status-badge status-active">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-badge status-inactive">Inactive</span>
+                                    }
+                                </td>
+
+                                <td class="text-center">
+                                    @(item.RegisterDate?.ToString("dd/MM/yyyy HH:mm") ?? "-")
+                                </td>
+
+                                <!-- Edit -->
+                                <td class="text-center">
+                                    @if (isEmployee)
+                                    {
+                                        <a class="btn btn-action btn-edit"
+                                           asp-controller="User"
+                                           asp-action="UserEdit"
+                                           asp-route-id="@item.UserId">
+                                            แก้ไข
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+
+                                <!-- Delete -->
+                                <td class="text-center">
+                                    @if (isEmployee)
+                                    {
+                                        <a class="btn btn-action btn-delete"
+                                           asp-controller="User"
+                                           asp-action="UserDelete"
+                                           asp-route-id="@item.UserId"
+                                           onclick="return confirm('ยืนยันการลบพนักงานคนนี้ใช่หรือไม่?')">
+                                            ลบ
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="9" class="text-center py-5 text-muted">
+                                ยังไม่มีข้อมูลผู้ใช้งาน
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- =========================
+     ADD EMPLOYEE MODAL
+========================== -->
+<div class="modal fade owner-modal" id="newUserModal" tabindex="-1" aria-labelledby="newUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content owner-modal-content">
+
+            <div class="modal-header owner-modal-header">
+                <div>
+                    <h5 class="modal-title owner-modal-title" id="newUserModalLabel">เพิ่มบัญชีพนักงาน</h5>
+                    <div class="owner-modal-subtitle">สร้างบัญชีใหม่สำหรับพนักงานในร้าน</div>
+                </div>
+                <button type="button" class="btn-close btn-close-white opacity-100" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body owner-modal-body">
+                <form asp-controller="User" asp-action="UserCreate" method="post">
+                    @Html.AntiForgeryToken()
+
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label owner-label">ชื่อผู้ใช้</label>
+                            <input type="text"
+                                   name="Username"
+                                   class="form-control owner-input"
+                                   placeholder="กรอกชื่อผู้ใช้"
+                                   required>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label owner-label">อีเมล</label>
+                            <input type="email"
+                                   name="UserEmail"
+                                   class="form-control owner-input"
+                                   placeholder="กรอกอีเมล">
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label owner-label">เบอร์โทร</label>
+                            <input type="text"
+                                   name="UserPhone"
+                                   class="form-control owner-input"
+                                   placeholder="กรอกเบอร์โทร">
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label owner-label">รหัสผ่าน</label>
+                            <input type="password"
+                                   name="Password"
+                                   class="form-control owner-input"
+                                   placeholder="กรอกรหัสผ่าน"
+                                   required>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer owner-modal-footer px-0 pb-0 mt-4">
+                        <button type="button" class="btn btn-cancel" data-bs-dismiss="modal">
+                            ยกเลิก
+                        </button>
+                        <button type="submit" class="btn btn-save">
+                            บันทึกพนักงาน
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+

@@ -1,0 +1,953 @@
+@model List<WebApplication1.Models.db.FoodOrder>
+@using WebApplication1.Models.db
+
+@{
+    Layout = "_NavbarEmployeeLayout";
+    ViewData["Title"] = "ประวัติการขายของฉัน";
+
+    var users = ViewBag.AllUsers as List<FoodUser> ?? new List<FoodUser>();
+    var orderItems = ViewBag.OrderItems as List<FoodOrderitem> ?? new List<FoodOrderitem>();
+    var allMenus = ViewBag.AllMenus as List<FoodMenu> ?? new List<FoodMenu>();
+    var currentEmployee = ViewBag.CurrentEmployee as FoodUser;
+
+    string GetStatusText(ulong? status)
+    {
+        return status switch
+        {
+            1 => "รอพนักงานยืนยันออเดอร์",
+            2 => "รอลูกค้าชำระเงิน",
+            3 => "รอตรวจสอบการชำระเงิน",
+            4 => "ชำระเงินแล้ว / กำลังเตรียมอาหาร",
+            5 => "กำลังจัดส่ง",
+            6 => "ถึงปลายทาง / รอรับอาหาร",
+            7 => "สำเร็จแล้ว",
+            8 => "ออเดอร์ถูกปฏิเสธ",
+            _ => "ไม่ทราบสถานะ"
+        };
+    }
+
+    string GetStatusBadgeClass(ulong? status)
+    {
+        return status switch
+        {
+            1 => "status-badge status-warning",
+            2 => "status-badge status-info",
+            3 => "status-badge status-primary",
+            4 => "status-badge status-secondary",
+            5 => "status-badge status-dark",
+            6 => "status-badge status-success",
+            7 => "status-badge status-success",
+            8 => "status-badge status-danger",
+            _ => "status-badge status-light"
+        };
+    }
+
+    string GetPromotionText(FoodPromotion? promotion)
+    {
+        if (promotion == null) return "-";
+
+        var type = (promotion.DiscountType ?? "").Trim().ToUpper();
+        var value = promotion.DiscountValue;
+
+        if (type == "AMOUNT")
+        {
+            return $"ลด {value:0.00} บาท";
+        }
+
+        if (value > 0)
+        {
+            return $"ลด {value:0.##}%";
+        }
+
+        if (promotion.DiscountPercent.HasValue)
+        {
+            return $"ลด {promotion.DiscountPercent.Value}%";
+        }
+
+        return promotion.PromotionName ?? "-";
+    }
+
+    var totalOrders = Model?.Count ?? 0;
+    var totalSales = Model?.Sum(x => x.FinalPrice) ?? 0m;
+    var averagePerOrder = totalOrders > 0 ? totalSales / totalOrders : 0m;
+}
+
+<style>
+    .history-employee-page {
+        color: #003049;
+        font-family: 'Prompt', sans-serif;
+    }
+
+    .history-employee-page *,
+    .history-employee-page *::before,
+    .history-employee-page *::after {
+        font-family: 'Prompt', sans-serif !important;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1.25rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.4rem;
+    }
+
+    .page-title {
+        font-size: clamp(2.1rem, 3vw, 3.2rem);
+        font-weight: 800;
+        color: #003049;
+        line-height: 1.06;
+        letter-spacing: -0.03em;
+        margin: 0;
+    }
+
+    .page-subtitle {
+        margin-top: 0.45rem;
+        font-size: 1rem;
+        color: #6b7280;
+        line-height: 1.6;
+        max-width: 760px;
+    }
+
+    .employee-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.85rem 1.15rem;
+        border-radius: 999px;
+        background: #eef6ff;
+        color: #0b5ed7;
+        border: 1px solid #d9e8ff;
+        font-size: 0.9rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .summary-card {
+        border: 1px solid #eadfca;
+        border-radius: 22px;
+        background: #fff;
+        box-shadow: 0 10px 24px rgba(0,0,0,.035);
+        height: 100%;
+    }
+
+    .summary-label {
+        font-size: .85rem;
+        color: #7b8794;
+        margin-bottom: 4px;
+    }
+
+    .summary-value {
+        font-size: 1.45rem;
+        font-weight: 800;
+        color: #003049;
+        line-height: 1.2;
+    }
+
+    .summary-value.red {
+        color: #AA132A;
+    }
+
+    .custom-alert {
+        border: none;
+        border-radius: 18px;
+        box-shadow: 0 8px 20px rgba(0, 48, 73, 0.05);
+        font-weight: 500;
+        margin-bottom: 1rem;
+    }
+
+    .success-alert {
+        background: #ecfdf5;
+        color: #065f46;
+    }
+
+    .error-alert {
+        background: #fef2f2;
+        color: #991b1b;
+    }
+
+    .filter-card {
+        background: #ffffff;
+        border: 1px solid #eadfca;
+        border-radius: 24px;
+        box-shadow: 0 12px 26px rgba(0, 48, 73, 0.04);
+    }
+
+    .soft-input,
+    .soft-select {
+        border-radius: 14px !important;
+        border: 1px solid #e8dcc7 !important;
+        min-height: 46px;
+        box-shadow: none !important;
+    }
+
+    .soft-input:focus,
+    .soft-select:focus {
+        border-color: #E9C372 !important;
+        box-shadow: 0 0 0 .2rem rgba(233,195,114,.15) !important;
+    }
+
+    .soft-btn {
+        min-height: 46px;
+        border-radius: 14px !important;
+        font-weight: 700;
+    }
+
+    .main-table-card {
+        background: #ffffff;
+        border: 1px solid #eadfca;
+        border-radius: 28px;
+        overflow: hidden;
+        box-shadow: 0 16px 34px rgba(0, 48, 73, 0.05);
+    }
+
+    .table-responsive {
+        border-radius: 28px;
+    }
+
+    .custom-table {
+        margin-bottom: 0;
+    }
+
+    .custom-table thead th {
+        background: #fffaf1;
+        color: #6b7280;
+        font-size: 0.8rem;
+        font-weight: 800;
+        padding: 1rem 0.9rem;
+        border-bottom: 1px solid #efe5d4;
+        white-space: nowrap;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    .custom-table tbody td {
+        padding: 1rem 0.9rem;
+        border-color: #f3ecdf;
+        vertical-align: middle;
+        white-space: nowrap;
+        color: #003049;
+        font-size: 0.94rem;
+    }
+
+    .custom-table td:nth-child(3),
+    .custom-table td:nth-child(5),
+    .custom-table td:nth-child(9) {
+        white-space: normal;
+    }
+
+    .order-row {
+        transition: all 0.18s ease;
+    }
+
+    .order-row:hover {
+        background: #fffdf8;
+    }
+
+    .price-final {
+        color: #c1122f;
+        font-weight: 800;
+    }
+
+    .btn-detail {
+        border: 1px solid #eadfca;
+        background: #ffffff;
+        color: #003049;
+        border-radius: 999px;
+        padding: 0.5rem 1rem;
+        font-size: 0.84rem;
+        font-weight: 700;
+        transition: all 0.2s ease;
+        box-shadow: none;
+    }
+
+    .btn-detail:hover {
+        background: #fff8ea;
+        border-color: #d8c8aa;
+        color: #003049;
+        transform: translateY(-1px);
+    }
+
+    .detail-row {
+        background: #fffdfa;
+    }
+
+    .detail-wrap {
+        padding: 1rem;
+        border-top: 1px solid #f1e7d8;
+        background: #fffdfa;
+    }
+
+    .detail-card {
+        background: #ffffff;
+        border: 1px solid #eadfca;
+        border-radius: 22px;
+        box-shadow: 0 8px 22px rgba(0, 48, 73, 0.035);
+    }
+
+    .detail-card-body {
+        padding: 1rem;
+    }
+
+    .detail-section-title {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #003049;
+        margin-bottom: 1rem;
+    }
+
+    .menu-thumb {
+        width: 52px;
+        height: 52px;
+        object-fit: cover;
+        border-radius: 14px;
+        border: 1px solid #efe5d4;
+        flex-shrink: 0;
+    }
+
+    .inner-table {
+        margin-bottom: 0;
+    }
+
+    .inner-table thead th {
+        background: #fffaf1;
+        font-size: 0.78rem;
+        color: #7b8794;
+        border-bottom: 1px solid #efe5d4;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+    }
+
+    .inner-table td {
+        border-color: #f3ecdf;
+        color: #003049;
+        font-size: 0.9rem;
+    }
+
+    .info-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.7rem;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+
+    .info-row .label {
+        color: #6b7280;
+        font-size: 0.9rem;
+    }
+
+    .info-row .value {
+        color: #003049;
+        font-weight: 600;
+        text-align: right;
+    }
+
+    .total-row {
+        padding-top: 0.25rem;
+    }
+
+    .small-label {
+        font-size: 0.78rem;
+        color: #7b8794;
+        margin-bottom: 0.3rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+    }
+
+    .divider-line {
+        height: 1px;
+        background: #f1e7d8;
+        margin: 1rem 0;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.46rem 0.82rem;
+        border-radius: 999px;
+        font-size: 0.77rem;
+        font-weight: 800;
+        line-height: 1.25;
+        border: 1px solid transparent;
+    }
+
+    .status-warning {
+        background: #fff4d6;
+        color: #9a6700;
+        border-color: #f1dfb1;
+    }
+
+    .status-info {
+        background: #e0f2fe;
+        color: #075985;
+        border-color: #bae6fd;
+    }
+
+    .status-primary {
+        background: #eef6ff;
+        color: #0b5ed7;
+        border-color: #d9e8ff;
+    }
+
+    .status-secondary {
+        background: #eef2f7;
+        color: #334155;
+        border-color: #dbe3ec;
+    }
+
+    .status-dark {
+        background: #e2e8f0;
+        color: #0f172a;
+        border-color: #cbd5e1;
+    }
+
+    .status-success {
+        background: #eaf8ef;
+        color: #198754;
+        border-color: #cfead8;
+    }
+
+    .status-danger {
+        background: #fff0f3;
+        color: #AA132A;
+        border-color: #f1d9de;
+    }
+
+    .status-light {
+        background: #f8fafc;
+        color: #64748b;
+        border-color: #e2e8f0;
+    }
+
+    .status-note {
+        display: inline-flex;
+        padding: 0.58rem 0.95rem;
+        border-radius: 999px;
+        font-size: 0.82rem;
+        font-weight: 700;
+    }
+
+    .success-note {
+        background: #eaf8ef;
+        color: #198754;
+        border: 1px solid #cfead8;
+    }
+
+    .empty-state-card {
+        background: #ffffff;
+        border: 1px solid #eadfca;
+        border-radius: 28px;
+        box-shadow: 0 14px 30px rgba(0, 48, 73, 0.04);
+        text-align: center;
+        padding: 3rem 1.5rem;
+    }
+
+    .empty-icon {
+        font-size: 2.5rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .empty-title {
+        font-weight: 800;
+        color: #003049;
+        margin-bottom: 0.4rem;
+    }
+
+    .empty-subtitle {
+        color: #6b7280;
+    }
+
+    @@media (max-width: 991.98px) {
+        .page-title {
+            font-size: 1.65rem;
+        }
+
+        .page-subtitle {
+            font-size: 0.92rem;
+        }
+
+        .custom-table th,
+        .custom-table td {
+            font-size: 0.9rem;
+        }
+
+        .info-row {
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .info-row .value {
+            text-align: left;
+        }
+    }
+
+    @@media (max-width: 767.98px) {
+        .page-header {
+            align-items: stretch;
+        }
+
+        .employee-chip {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .page-title {
+            font-size: 1.45rem;
+        }
+
+        .page-subtitle {
+            font-size: 0.9rem;
+        }
+    }
+</style>
+
+<div class="container py-4 history-employee-page">
+
+    <!-- Header -->
+    <div class="page-header mb-4">
+        <div>
+            <h2 class="page-title mb-1">ประวัติการขายของฉัน</h2>
+            <p class="page-subtitle mb-0">
+                ดูเฉพาะออเดอร์ที่คุณเป็นผู้ดำเนินการจนสำเร็จ พร้อมค้นหาและกรองตามวันได้ในหน้าเดียว
+            </p>
+        </div>
+
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show custom-alert success-alert" role="alert">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show custom-alert error-alert" role="alert">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- FILTER -->
+    <div class="filter-card p-3 p-lg-4 mb-4">
+        <div class="row g-3 align-items-end">
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-semibold">ค้นหา</label>
+                <input type="text"
+                       id="searchInput"
+                       class="form-control soft-input"
+                       placeholder="Order ID / ชื่อลูกค้า / เบอร์โทร">
+            </div>
+
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label fw-semibold">สถานะ</label>
+                <select id="statusFilter" class="form-select soft-select">
+                    <option value="all">ทั้งหมด</option>
+                    <option value="7">สำเร็จแล้ว</option>
+                </select>
+            </div>
+
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label fw-semibold">จากวันที่</label>
+                <input type="date" id="fromDate" class="form-control soft-input" />
+            </div>
+
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label fw-semibold">ถึงวันที่</label>
+                <input type="date" id="toDate" class="form-control soft-input" />
+            </div>
+
+            <div class="col-lg-3 col-md-12">
+                <button type="button" id="resetFilterBtn" class="btn btn-outline-secondary soft-btn w-100">
+                    ล้างตัวกรองทั้งหมด
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @if (Model == null || !Model.Any())
+    {
+        <div class="empty-state-card">
+            <div class="empty-icon">📋</div>
+            <h5 class="empty-title">ยังไม่มีประวัติการขาย</h5>
+            <p class="empty-subtitle mb-0">เมื่อคุณดำเนินการออเดอร์จนสำเร็จ รายการจะมาแสดงที่หน้านี้</p>
+        </div>
+    }
+    else
+    {
+        <div class="main-table-card">
+            <div class="table-responsive">
+                <table class="table custom-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>เลขออเดอร์</th>
+                            <th>วันเวลา</th>
+                            <th>ลูกค้า</th>
+                            <th>เบอร์โทร</th>
+                            <th>โปรโมชัน</th>
+                            <th class="text-end">ก่อนลด</th>
+                            <th class="text-end">ส่วนลด</th>
+                            <th class="text-end">สุทธิ</th>
+                            <th>สถานะ</th>
+                            <th class="text-center">รายละเอียด</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="orderTableBody">
+                        @foreach (var order in Model.OrderByDescending(o => o.OrderDate).ThenByDescending(o => o.OrderTime))
+                        {
+                            var customer = users.FirstOrDefault(u => u.UserId == order.UserId);
+                            var itemsInOrder = orderItems.Where(x => x.OrderId == order.OrderId).ToList();
+                            var collapseId = "detail_" + order.OrderId;
+
+                            var searchText = $"{order.OrderId} {(customer?.UserName ?? "")} {(customer?.UserPhone ?? "")}".ToLower();
+                            var orderDateValue = order.OrderDate.ToString("yyyy-MM-dd");
+
+                            <tr class="order-row filter-row"
+                                data-search="@searchText"
+                                data-status="@(order.OrderStatus?.ToString() ?? "")"
+                                data-orderdate="@orderDateValue">
+                                <td class="fw-semibold">@order.OrderId</td>
+
+                                <td>
+                                    <div class="fw-medium">@order.OrderDate.ToString("dd/MM/yyyy")</div>
+                                    <small class="text-muted">@order.OrderTime.ToString(@"HH\:mm")</small>
+                                </td>
+
+                                <td>
+                                    <div class="fw-semibold">@(customer?.UserName ?? "ไม่พบข้อมูลลูกค้า")</div>
+                                </td>
+
+                                <td>
+                                    <span>@(customer?.UserPhone ?? "-")</span>
+                                </td>
+
+                                <td>
+                                    @if (order.Promotion != null)
+                                    {
+                                        <div class="fw-semibold text-primary">
+                                            @(order.Promotion.PromotionName ?? "-")
+                                        </div>
+                                        <small class="text-muted">@GetPromotionText(order.Promotion)</small>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+
+                                <td class="text-end">
+                                    @order.TotalPrice.ToString("N2") ฿
+                                </td>
+
+                                <td class="text-end">
+                                    @if ((order.DiscountAmount ?? 0m) > 0m)
+                                    {
+                                        <span class="text-success fw-semibold">-@((order.DiscountAmount ?? 0m).ToString("N2")) ฿</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">0.00 ฿</span>
+                                    }
+                                </td>
+
+                                <td class="text-end">
+                                    <span class="price-final">@order.FinalPrice.ToString("N2") ฿</span>
+                                </td>
+
+                                <td>
+                                    <span class="@GetStatusBadgeClass(order.OrderStatus)">
+                                        @GetStatusText(order.OrderStatus)
+                                    </span>
+                                </td>
+
+                                <td class="text-center">
+                                    <button class="btn btn-detail"
+                                            type="button"
+                                            data-bs-toggle="collapse"
+                                            data-bs-target="#@collapseId"
+                                            aria-expanded="false"
+                                            aria-controls="@collapseId">
+                                        ดูรายละเอียด
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <tr class="detail-row detail-filter-row">
+                                <td colspan="10" class="p-0 border-0">
+                                    <div class="collapse" id="@collapseId">
+                                        <div class="detail-wrap">
+                                            <div class="row g-3">
+
+                                                <!-- รายการอาหาร -->
+                                                <div class="col-12 col-xl-7">
+                                                    <div class="detail-card h-100">
+                                                        <div class="detail-card-body">
+                                                            <h6 class="detail-section-title">รายการอาหารที่สั่ง</h6>
+
+                                                            @if (itemsInOrder.Any())
+                                                            {
+                                                                <div class="table-responsive">
+                                                                    <table class="table table-sm inner-table align-middle mb-0">
+                                                                        <thead>
+                                                                            <tr>
+                                                                                <th>เมนู</th>
+                                                                                <th class="text-center">จำนวน</th>
+                                                                                <th class="text-end">ราคาต่อชิ้น</th>
+                                                                                <th class="text-end">รวม</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            @foreach (var item in itemsInOrder)
+                                                                            {
+                                                                                var menu = allMenus.FirstOrDefault(m => m.MenuId == item.MenuId);
+
+                                                                                string imagePath = "/img/menu/default-food.jpg";
+                                                                                if (!string.IsNullOrWhiteSpace(menu?.MenuImage))
+                                                                                {
+                                                                                    imagePath = Url.Content(menu.MenuImage.StartsWith("/")
+                                                                                        ? menu.MenuImage
+                                                                                        : "/img/menu/" + menu.MenuImage);
+                                                                                }
+
+                                                                                <tr>
+                                                                                    <td>
+                                                                                        <div class="d-flex align-items-center gap-2">
+                                                                                            <img src="@imagePath"
+                                                                                                 alt="menu"
+                                                                                                 class="menu-thumb"
+                                                                                                 onerror="this.onerror=null;this.src='/img/menu/default-food.jpg';" />
+                                                                                            <div>
+                                                                                                <div class="fw-semibold">@((menu?.MenuName) ?? "ไม่พบชื่อเมนู")</div>
+                                                                                                <small class="text-muted">Menu ID: @item.MenuId</small>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </td>
+
+                                                                                    <td class="text-center">@item.Quantity</td>
+
+                                                                                    <td class="text-end">
+                                                                                        @item.Price.ToString("N2") ฿
+                                                                                    </td>
+
+                                                                                    <td class="text-end fw-semibold text-danger">
+                                                                                        @((item.Price * item.Quantity).ToString("N2")) ฿
+                                                                                    </td>
+                                                                                </tr>
+                                                                            }
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            }
+                                                            else
+                                                            {
+                                                                <div class="text-muted">ไม่พบรายการอาหารในออเดอร์นี้</div>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- ข้อมูลออเดอร์ -->
+                                                <div class="col-12 col-xl-5">
+                                                    <div class="detail-card h-100">
+                                                        <div class="detail-card-body">
+                                                            <h6 class="detail-section-title">ข้อมูลออเดอร์</h6>
+
+                                                            <div class="info-list">
+                                                                <div class="info-row">
+                                                                    <span class="label">เลขออเดอร์</span>
+                                                                    <span class="value">@order.OrderId</span>
+                                                                </div>
+
+                                                                <div class="info-row">
+                                                                    <span class="label">ลูกค้า</span>
+                                                                    <span class="value">@(customer?.UserName ?? "-")</span>
+                                                                </div>
+
+                                                                <div class="info-row">
+                                                                    <span class="label">เบอร์โทร</span>
+                                                                    <span class="value">@(customer?.UserPhone ?? "-")</span>
+                                                                </div>
+
+                                                                <div class="info-row">
+                                                                    <span class="label">ยอดรวมก่อนลด</span>
+                                                                    <span class="value">@order.TotalPrice.ToString("N2") ฿</span>
+                                                                </div>
+
+                                                                <div class="info-row">
+                                                                    <span class="label">ส่วนลด</span>
+                                                                    <span class="value text-success">-@((order.DiscountAmount ?? 0m).ToString("N2")) ฿</span>
+                                                                </div>
+
+                                                                <div class="info-row total-row">
+                                                                    <span class="label">ยอดสุทธิ</span>
+                                                                    <span class="value text-danger fw-bold">@order.FinalPrice.ToString("N2") ฿</span>
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="divider-line"></div>
+
+                                                            <div class="mb-3">
+                                                                <div class="small-label">โปรโมชัน</div>
+                                                                @if (order.Promotion != null)
+                                                                {
+                                                                    <div class="fw-semibold text-primary">
+                                                                        @(order.Promotion.PromotionName ?? "-")
+                                                                    </div>
+                                                                    <small class="text-muted">@GetPromotionText(order.Promotion)</small>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <div class="text-muted">ไม่มี</div>
+                                                                }
+                                                            </div>
+
+                                                            <div class="mb-3">
+                                                                <div class="small-label">สถานะออเดอร์</div>
+                                                                <span class="@GetStatusBadgeClass(order.OrderStatus)">
+                                                                    @GetStatusText(order.OrderStatus)
+                                                                </span>
+                                                            </div>
+
+                                                            <div class="mb-3">
+                                                                <div class="small-label">ช่องทางชำระเงิน</div>
+                                                                <div class="fw-semibold">
+                                                                    @(string.IsNullOrWhiteSpace(order.PaymentMethod) ? "-" : order.PaymentMethod)
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="mb-3">
+                                                                <div class="small-label">หมายเหตุออเดอร์</div>
+                                                                <div>
+                                                                    @(string.IsNullOrWhiteSpace(order.OrderNote) ? "-" : order.OrderNote)
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="mb-3">
+                                                                <div class="small-label">แต้มที่ลูกค้าได้รับ</div>
+                                                                <div class="fw-semibold text-danger">
+                                                                    +@(order.PointsEarned ?? 0) แต้ม
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="mt-3">
+                                                                <span class="status-note success-note">
+                                                                    ออเดอร์นี้เสร็จสมบูรณ์แล้ว
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="noResultBox" class="empty-state-card d-none mt-4">
+            <div class="empty-icon">🔎</div>
+            <h5 class="empty-title">ไม่พบออเดอร์ที่ตรงกับเงื่อนไข</h5>
+            <p class="empty-subtitle mb-0">ลองเปลี่ยนคำค้นหา หรือช่วงวันที่อีกครั้ง</p>
+        </div>
+    }
+</div>
+
+<script>
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const fromDate = document.getElementById('fromDate');
+    const toDate = document.getElementById('toDate');
+    const resetFilterBtn = document.getElementById('resetFilterBtn');
+    const noResultBox = document.getElementById('noResultBox');
+
+    function isDateInRange(orderDate, from, to) {
+        if (!orderDate) return false;
+
+        if (from && orderDate < from) return false;
+        if (to && orderDate > to) return false;
+
+        return true;
+    }
+
+    function filterOrders() {
+        const searchValue = (searchInput?.value || '').trim().toLowerCase();
+        const statusValue = statusFilter?.value || 'all';
+        const fromValue = fromDate?.value || '';
+        const toValue = toDate?.value || '';
+
+        const rows = document.querySelectorAll('.filter-row');
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const searchText = row.dataset.search || '';
+            const status = row.dataset.status || '';
+            const orderDate = row.dataset.orderdate || '';
+
+            const detailRow = row.nextElementSibling;
+
+            const matchSearch = searchValue === '' || searchText.includes(searchValue);
+            const matchStatus = statusValue === 'all' || status === statusValue;
+            const matchDate = isDateInRange(orderDate, fromValue, toValue);
+
+            const isVisible = matchSearch && matchStatus && matchDate;
+
+            if (isVisible) {
+                row.style.display = '';
+                if (detailRow && detailRow.classList.contains('detail-filter-row')) {
+                    detailRow.style.display = '';
+                }
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+                if (detailRow && detailRow.classList.contains('detail-filter-row')) {
+                    detailRow.style.display = 'none';
+                }
+            }
+        });
+
+        if (noResultBox) {
+            if (visibleCount === 0 && rows.length > 0) {
+                noResultBox.classList.remove('d-none');
+            } else {
+                noResultBox.classList.add('d-none');
+            }
+        }
+    }
+
+    [searchInput, statusFilter, fromDate, toDate].forEach(el => {
+        if (el) {
+            el.addEventListener('input', filterOrders);
+            el.addEventListener('change', filterOrders);
+        }
+    });
+
+    if (resetFilterBtn) {
+        resetFilterBtn.addEventListener('click', function () {
+            if (searchInput) searchInput.value = '';
+            if (statusFilter) statusFilter.value = 'all';
+            if (fromDate) fromDate.value = '';
+            if (toDate) toDate.value = '';
+            filterOrders();
+        });
+    }
+
+    filterOrders();
+</script>

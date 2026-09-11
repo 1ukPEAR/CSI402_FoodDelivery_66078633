@@ -1,0 +1,916 @@
+@model List<WebApplication1.Models.db.FoodMenu>
+@using WebApplication1.Models.db
+@using System.Text.Json
+
+@{
+    Layout = "_NavbarOwnerLayout";
+    ViewData["Title"] = "จัดการเมนู";
+    var menuTypes = ViewBag.MenuTypes as List<FoodMenutype>;
+}
+
+<!-- SweetAlert2 CDN -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<style>
+    .manage-menu-page {
+        font-family: 'Prompt', sans-serif;
+        color: #003049;
+    }
+
+    .manage-menu-page *,
+    .manage-menu-page *::before,
+    .manage-menu-page *::after {
+        font-family: 'Prompt', sans-serif !important;
+    }
+
+    .simple-page-title {
+        font-size: clamp(2rem, 3vw, 3rem);
+        font-weight: 800;
+        color: #003049;
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+    }
+
+    .simple-page-subtitle {
+        color: #5f6b76;
+        font-size: 1rem;
+        line-height: 1.6;
+        font-weight: 400;
+    }
+
+    .add-menu-btn {
+        background: #AA132A;
+        border: 1px solid #AA132A;
+        color: #fff;
+        border-radius: 16px;
+        padding: 10px 18px;
+        font-weight: 600;
+        box-shadow: 0 10px 22px rgba(170, 19, 42, 0.12);
+        transition: all .2s ease;
+    }
+
+    .add-menu-btn:hover {
+        background: #941125;
+        border-color: #941125;
+        color: #fff;
+        transform: translateY(-1px);
+        box-shadow: 0 14px 26px rgba(170, 19, 42, 0.18);
+    }
+
+    .menu-card {
+        border: 1px solid #eadfca;
+        border-radius: 22px;
+        background: #fff;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, .035);
+        overflow: hidden;
+        transition: transform .2s ease, box-shadow .2s ease;
+        position: relative;
+    }
+
+    .menu-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 14px 28px rgba(0, 0, 0, .05);
+    }
+
+    .menu-dropdown-wrap {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        z-index: 20;
+    }
+
+    .menu-more-btn {
+        width: 44px;
+        height: 44px;
+        border-radius: 16px;
+        border: 1px solid #eadfca !important;
+        background: rgba(255, 255, 255, 0.96) !important;
+        box-shadow: 0 8px 18px rgba(0, 0, 0, .05);
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        color: #003049 !important;
+        transition: all .2s ease;
+        padding: 0 !important;
+    }
+
+    .menu-more-btn:hover {
+        background: #fff !important;
+        color: #AA132A !important;
+        border-color: #e0c5a7 !important;
+        transform: translateY(-1px);
+    }
+
+    .menu-more-btn:focus,
+    .menu-more-btn:active {
+        outline: none !important;
+        box-shadow: 0 0 0 .18rem rgba(224, 197, 167, .18) !important;
+    }
+
+    .more-icon-text {
+        font-size: 26px;
+        line-height: 1;
+        font-weight: 700;
+        color: inherit;
+        display: inline-block;
+        transform: translateY(-1px);
+        user-select: none;
+        pointer-events: none;
+    }
+
+    .menu-action-dropdown {
+        border: 1px solid #eadfca;
+        border-radius: 16px;
+        box-shadow: 0 16px 30px rgba(0, 0, 0, .08);
+        padding: 8px;
+        min-width: 180px;
+    }
+
+    .menu-action-dropdown .dropdown-item {
+        border-radius: 12px;
+        padding: 10px 12px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .menu-action-dropdown .dropdown-item:hover {
+        background: #fdf7ea;
+    }
+
+    .menu-action-symbol {
+        width: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        line-height: 1;
+        flex-shrink: 0;
+    }
+
+    .menu-img-wrap {
+        padding: 14px 14px 0;
+    }
+
+    .menu-img {
+        width: 100%;
+        height: 210px;
+        object-fit: cover;
+        border-radius: 18px;
+        display: block;
+        background: #f8f6f0;
+        border: 1px solid #f0e6d5;
+    }
+
+    .menu-name {
+        font-size: 1.08rem;
+        font-weight: 800;
+        color: #003049;
+        line-height: 1.35;
+    }
+
+    .menu-type {
+        font-size: .84rem;
+        color: #7b8794;
+        font-weight: 600;
+    }
+
+    .menu-price {
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: #AA132A;
+        line-height: 1.2;
+    }
+
+    .extra-box {
+        background: #fffdf8;
+        border: 1px solid #f0e6d5;
+        border-radius: 16px;
+        padding: 12px 14px;
+    }
+
+    .extra-box-empty {
+        min-height: 92px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .extra-title {
+        font-size: .82rem;
+        font-weight: 700;
+        color: #6b7280;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: .02em;
+    }
+
+    .extra-list {
+        list-style: none;
+        padding-left: 0;
+        margin: 0;
+    }
+
+    .extra-list li {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+        font-size: .9rem;
+        color: #003049;
+        padding: 4px 0;
+        border-bottom: 1px dashed #eee4d2;
+    }
+
+    .extra-list li:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    .extra-price {
+        color: #AA132A;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .extra-empty-text {
+        font-size: .9rem;
+        color: #9aa4af;
+    }
+
+    .status-box {
+        border-top: 1px solid #f0e6d5;
+        padding-top: 14px;
+    }
+
+    .status-label {
+        font-size: .82rem;
+        font-weight: 700;
+        color: #6b7280;
+        margin-bottom: 3px;
+    }
+
+    .status-text {
+        font-size: .95rem;
+        font-weight: 700;
+    }
+
+    .status-on {
+        color: #198754;
+    }
+
+    .status-off {
+        color: #6c757d;
+    }
+
+    .menu-status-switch {
+        transform: scale(1.18);
+        cursor: pointer;
+        box-shadow: none !important;
+    }
+
+    .menu-status-switch:checked {
+        background-color: #AA132A;
+        border-color: #AA132A;
+    }
+
+    .menu-status-switch:focus {
+        box-shadow: 0 0 0 .2rem rgba(170, 19, 42, .15) !important;
+        border-color: #AA132A;
+    }
+
+    .empty-state {
+        border: 1px solid #eadfca;
+        border-radius: 22px;
+        background: #fff;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, .03);
+    }
+
+    .modal-content {
+        border-radius: 24px;
+        border: 1px solid #eadfca;
+        box-shadow: 0 24px 50px rgba(0,0,0,.10);
+    }
+
+    .modal-header {
+        border-bottom: 0 !important;
+    }
+
+    .modal-footer {
+        border-top: 0 !important;
+    }
+
+    .modal-title {
+        color: #003049;
+        font-weight: 800;
+    }
+
+    .form-label {
+        color: #003049;
+        font-weight: 700;
+    }
+
+    .form-control,
+    .form-select {
+        border-radius: 14px !important;
+        border: 1px solid #eadfca !important;
+        padding: 10px 14px;
+        box-shadow: none !important;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #e0c5a7 !important;
+        box-shadow: 0 0 0 .18rem rgba(224, 197, 167, .22) !important;
+    }
+
+    .btn-soft-secondary {
+        background: #fff;
+        color: #003049;
+        border: 1px solid #eadfca;
+        border-radius: 14px;
+        font-weight: 600;
+    }
+
+    .btn-soft-secondary:hover {
+        background: #fdf7ea;
+        color: #003049;
+        border-color: #e0c5a7;
+    }
+
+    .btn-soft-primary {
+        background: #AA132A;
+        color: #fff;
+        border: 1px solid #AA132A;
+        border-radius: 14px;
+        font-weight: 600;
+    }
+
+    .btn-soft-primary:hover {
+        background: #941125;
+        color: #fff;
+        border-color: #941125;
+    }
+
+    .btn-soft-edit {
+        background: #003049;
+        color: #fff;
+        border: 1px solid #003049;
+        border-radius: 14px;
+        font-weight: 600;
+    }
+
+    .btn-soft-edit:hover {
+        background: #02263b;
+        color: #fff;
+        border-color: #02263b;
+    }
+
+    .btn-option-add {
+        border-radius: 12px;
+        font-weight: 600;
+        border: 1px solid #eadfca;
+        color: #AA132A;
+        background: #fff;
+    }
+
+    .btn-option-add:hover {
+        background: #fff7f8;
+        border-color: #e0c5a7;
+        color: #AA132A;
+    }
+
+    .btn-option-remove {
+        border-radius: 12px;
+        font-weight: 500;
+    }
+
+    .option-row {
+        align-items: center;
+    }
+</style>
+
+<div class="container py-4 manage-menu-page">
+
+    <!-- PAGE HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="simple-page-title mb-2">จัดการเมนูอาหาร</h2>
+            <p class="simple-page-subtitle mb-0">
+                เพิ่ม แก้ไข ลบ และเปิด / ปิดสถานะเมนูได้จากหน้านี้
+            </p>
+        </div>
+
+        <button type="button"
+                class="btn add-menu-btn"
+                data-bs-toggle="modal"
+                data-bs-target="#addMenuModal">
+            + เพิ่มเมนู
+        </button>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-4 border-0 shadow-sm" role="alert">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show rounded-4 border-0 shadow-sm" role="alert">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- MENU GRID -->
+    <div class="row g-4">
+        @if (Model != null && Model.Any())
+        {
+            @foreach (var item in Model)
+            {
+                var imgPath = string.IsNullOrWhiteSpace(item.MenuImage)
+                    ? "/img/menu/default-food.jpg"
+                    : (item.MenuImage.StartsWith("/") ? item.MenuImage : "/img/menu/" + item.MenuImage);
+
+                var optionsData = (item.FoodMenuoptions ?? new List<FoodMenuoption>())
+                    .Select(o => new
+                    {
+                        optionName = o.OptionName,
+                        extraPrice = o.ExtraPrice
+                    })
+                    .ToList();
+
+                var optionsJson = JsonSerializer.Serialize(optionsData);
+
+                var rawMenuType = item.MenuType?.MenuTypeName?.Trim() ?? "-";
+                var menuTypeName = rawMenuType.ToUpper() switch
+                {
+                    "FOOD" => "อาหาร",
+                    "DRINK" => "เครื่องดื่ม",
+                    "DESSERT" => "ของหวาน",
+                    _ => rawMenuType
+                };
+
+                <div class="col-12 col-md-6 col-lg-4 col-xl-3">
+                    <div class="card menu-card h-100">
+
+                        <!-- TOP RIGHT DROPDOWN -->
+                        <div class="menu-dropdown-wrap">
+                            <div class="dropdown">
+                                <button class="btn menu-more-btn"
+                                        type="button"
+                                        data-bs-toggle="dropdown"
+                                        aria-expanded="false"
+                                        title="จัดการเมนู">
+                                    <span class="more-icon-text">⋮</span>
+                                </button>
+
+                                <ul class="dropdown-menu dropdown-menu-end menu-action-dropdown border-0">
+                                    <li>
+                                        <button type="button"
+                                                class="dropdown-item"
+                                                onclick='openEditMenuModal(
+                                                    "@item.MenuId",
+                                                    @Html.Raw(JsonSerializer.Serialize(item.MenuName ?? "")),
+                                                    "@item.MenuTypeId",
+                                                    "@(item.MenuPrice ?? 0)",
+                                                    "@imgPath",
+                                                    @Html.Raw(optionsJson)
+                                                )'>
+                                            <span class="menu-action-symbol text-primary">✏</span>
+                                            <span>แก้ไข</span>
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button type="button"
+                                                class="dropdown-item text-danger"
+                                                onclick="confirmDeleteMenu('@item.MenuId', @Html.Raw(JsonSerializer.Serialize(item.MenuName ?? "")))">
+                                            <span class="menu-action-symbol text-danger">🗑</span>
+                                            <span>ลบ</span>
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- IMAGE -->
+                        <div class="menu-img-wrap">
+                            <img src="@Url.Content(imgPath)"
+                                 class="menu-img"
+                                 alt="@(item.MenuName ?? "menu")"
+                                 onerror="this.src='/img/menu/default-food.jpg'" />
+                        </div>
+
+                        <!-- BODY -->
+                        <div class="card-body d-flex flex-column p-3 p-lg-4">
+
+                            <div class="mb-2">
+                                <h5 class="menu-name mb-1 text-truncate">
+                                    @(item.MenuName ?? "ไม่ระบุชื่อเมนู")
+                                </h5>
+
+                                <div class="menu-type">
+                                    ประเภทอาหาร: @menuTypeName
+                                </div>
+                            </div>
+
+                            <div class="menu-price mb-3">
+                                ฿@((item.MenuPrice ?? 0).ToString("0.00"))
+                            </div>
+
+                            <!-- EXTRA OPTIONS -->
+                            @if (item.FoodMenuoptions != null && item.FoodMenuoptions.Any())
+                            {
+                                <div class="extra-box mb-3">
+                                    <div class="extra-title">Extra Options</div>
+                                    <ul class="extra-list mb-0">
+                                        @foreach (var opt in item.FoodMenuoptions)
+                                        {
+                                            <li>
+                                                <span>@opt.OptionName</span>
+                                                <span class="extra-price">+฿@opt.ExtraPrice.ToString("0.00")</span>
+                                            </li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="extra-box extra-box-empty mb-3">
+                                    <div class="extra-title">Extra Options</div>
+                                    <div class="extra-empty-text">ไม่มีตัวเลือกเสริม</div>
+                                </div>
+                            }
+
+                            <!-- STATUS SECTION -->
+                            <div class="mt-auto status-box">
+                                <div class="d-flex justify-content-between align-items-center gap-3">
+                                    <div>
+                                        <div class="status-label">สถานะเมนู</div>
+                                        <div class="status-text @(item.MenuStatus == 1UL ? "status-on" : "status-off")">
+                                            @(item.MenuStatus == 1UL ? "พร้อมขาย" : "ปิดเมนู / หมด")
+                                        </div>
+                                    </div>
+
+                                    <form asp-controller="Menu" asp-action="ToggleMenuStatus" method="post" class="m-0">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@item.MenuId" />
+
+                                        <div class="form-check form-switch m-0">
+                                            <input class="form-check-input menu-status-switch"
+                                                   type="checkbox"
+                                                   @(item.MenuStatus == 1UL ? "checked" : "")
+                                                   onchange="this.form.submit()">
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="col-12">
+                <div class="empty-state text-center py-5">
+                    <h5 class="mb-2 fw-bold">ยังไม่มีเมนูในระบบ</h5>
+                    <p class="text-muted mb-0">
+                        กด <strong>+ เพิ่มเมนู</strong> เพื่อเริ่มสร้างเมนูแรกของร้าน
+                    </p>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- HIDDEN DELETE FORM -->
+<form id="deleteMenuForm" asp-controller="Menu" asp-action="DeleteMenu" method="post" style="display:none;">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="id" id="deleteMenuId" />
+</form>
+
+<!-- ADD MENU MODAL -->
+<div class="modal fade" id="addMenuModal" tabindex="-1" aria-labelledby="addMenuModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+
+            <div class="modal-header pb-0">
+                <h5 class="modal-title" id="addMenuModalLabel">เพิ่มเมนูอาหาร</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body pt-3">
+                <form id="menuForm" asp-controller="Menu" asp-action="ManageMenu" method="post" enctype="multipart/form-data">
+                    @Html.AntiForgeryToken()
+
+                    <div class="mb-3">
+                        <label class="form-label">ประเภทเมนู</label>
+                        <select class="form-select" name="MenuTypeId" required>
+                            <option value="">-- เลือกประเภทเมนู --</option>
+                            @if (menuTypes != null)
+                            {
+                                @foreach (var type in menuTypes)
+                                {
+                                    <option value="@type.MenuTypeId">@type.MenuTypeName</option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">ชื่อเมนู</label>
+                        <input type="text" class="form-control" name="MenuName" placeholder="กรอกชื่อเมนู" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">ราคา</label>
+                        <input type="number" step="0.01" class="form-control" name="MenuPrice" placeholder="กรอกราคา" min="0">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">เลือกรูปภาพเมนู</label>
+                        <input type="file"
+                               class="form-control"
+                               name="MenuImageFile"
+                               id="addMenuImageFile"
+                               accept="image/*"
+                               onchange="previewAddMenuImage(this)">
+                    </div>
+
+                    <div class="mb-3 text-center">
+                        <img id="addMenuPreview"
+                             src="/img/menu/default-food.jpg"
+                             alt="Preview"
+                             class="img-fluid rounded-4 border shadow-sm"
+                             style="max-height: 220px; object-fit: cover; display:block; margin:auto;" />
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label mb-0">ตัวเลือกเพิ่มเติม</label>
+                            <button type="button"
+                                    class="btn btn-sm btn-option-add"
+                                    onclick="addOptionRow('addOptionContainer')">
+                                + เพิ่มตัวเลือก
+                            </button>
+                        </div>
+
+                        <div id="addOptionContainer">
+                            <div class="row option-row g-2 mb-2">
+                                <div class="col-md-6">
+                                    <input type="text" class="form-control" name="OptionName" placeholder="เช่น ไข่ดาว / ชีส / ไข่มุก">
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="number" step="0.01" class="form-control" name="ExtraPrice" placeholder="ราคาเพิ่ม" min="0">
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="button"
+                                            class="btn btn-outline-secondary btn-option-remove w-100"
+                                            onclick="removeOptionRow(this, 'addOptionContainer')">
+                                        ลบ
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+
+            <div class="modal-footer pt-0">
+                <button type="button" class="btn btn-soft-secondary px-4" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="submit" form="menuForm" class="btn btn-soft-primary px-4">บันทึกเมนู</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- EDIT MENU MODAL -->
+<div class="modal fade" id="editMenuModal" tabindex="-1" aria-labelledby="editMenuModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+
+            <div class="modal-header pb-0">
+                <h5 class="modal-title" id="editMenuModalLabel">แก้ไขเมนูอาหาร</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body pt-3">
+                <form id="editMenuForm" asp-controller="Menu" asp-action="UpdateMenu" method="post" enctype="multipart/form-data">
+                    @Html.AntiForgeryToken()
+
+                    <input type="hidden" name="MenuId" id="editMenuId" />
+
+                    <div class="mb-3">
+                        <label class="form-label">ประเภทเมนู</label>
+                        <select class="form-select" name="MenuTypeId" id="editMenuTypeId" required>
+                            <option value="">-- เลือกประเภทเมนู --</option>
+                            @if (menuTypes != null)
+                            {
+                                @foreach (var type in menuTypes)
+                                {
+                                    <option value="@type.MenuTypeId">@type.MenuTypeName</option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">ชื่อเมนู</label>
+                        <input type="text" class="form-control" name="MenuName" id="editMenuName" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">ราคา</label>
+                        <input type="number" step="0.01" class="form-control" name="MenuPrice" id="editMenuPrice" min="0">
+                    </div>
+
+                    <div class="mb-3 text-center">
+                        <label class="form-label d-block">รูปเมนู</label>
+                        <img id="editMenuPreview"
+                             src="/img/menu/default-food.jpg"
+                             alt="Preview"
+                             class="img-fluid rounded-4 border shadow-sm"
+                             style="max-height: 220px; object-fit: cover; display:block; margin:auto;" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">เปลี่ยนรูปใหม่ (ถ้ามี)</label>
+                        <input type="file"
+                               class="form-control"
+                               name="MenuImageFile"
+                               id="editMenuImageFile"
+                               accept="image/*"
+                               onchange="previewEditMenuImage(this)">
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label mb-0">ตัวเลือกเพิ่มเติม</label>
+                            <button type="button"
+                                    class="btn btn-sm btn-option-add"
+                                    onclick="addOptionRow('editOptionContainer')">
+                                + เพิ่มตัวเลือก
+                            </button>
+                        </div>
+
+                        <div id="editOptionContainer">
+                            <!-- JS render -->
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+
+            <div class="modal-footer pt-0">
+                <button type="button" class="btn btn-soft-secondary px-4" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="submit" form="editMenuForm" class="btn btn-soft-edit px-4">บันทึกการแก้ไข</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    function addOptionRow(containerId, optionName = "", extraPrice = "") {
+        const container = document.getElementById(containerId);
+
+        const row = document.createElement("div");
+        row.className = "row option-row g-2 mb-2";
+
+        row.innerHTML = `
+            <div class="col-md-6">
+                <input type="text" class="form-control" name="OptionName" placeholder="เช่น ไข่ดาว / ชีส / ไข่มุก" value="${escapeHtml(optionName)}">
+            </div>
+            <div class="col-md-4">
+                <input type="number" step="0.01" class="form-control" name="ExtraPrice" placeholder="ราคาเพิ่ม" min="0" value="${extraPrice}">
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-outline-secondary btn-option-remove w-100" onclick="removeOptionRow(this, '${containerId}')">
+                    ลบ
+                </button>
+            </div>
+        `;
+
+        container.appendChild(row);
+    }
+
+    function removeOptionRow(button, containerId) {
+        const rows = document.querySelectorAll(`#${containerId} .option-row`);
+
+        if (rows.length === 1) {
+            rows[0].querySelector('input[name="OptionName"]').value = "";
+            rows[0].querySelector('input[name="ExtraPrice"]').value = "";
+            return;
+        }
+
+        button.closest(".option-row").remove();
+    }
+
+    function previewAddMenuImage(input) {
+        const preview = document.getElementById("addMenuPreview");
+
+        if (input.files && input.files[0]) {
+            preview.src = URL.createObjectURL(input.files[0]);
+        } else {
+            preview.src = "/img/menu/default-food.jpg";
+        }
+    }
+
+    function previewEditMenuImage(input) {
+        const preview = document.getElementById("editMenuPreview");
+
+        if (input.files && input.files[0]) {
+            preview.src = URL.createObjectURL(input.files[0]);
+        }
+    }
+
+    function openEditMenuModal(menuId, menuName, menuTypeId, menuPrice, menuImage, options) {
+        document.getElementById("editMenuId").value = menuId;
+        document.getElementById("editMenuName").value = menuName;
+        document.getElementById("editMenuTypeId").value = menuTypeId;
+        document.getElementById("editMenuPrice").value = menuPrice;
+        document.getElementById("editMenuPreview").src = menuImage || "/img/menu/default-food.jpg";
+
+        document.getElementById("editMenuImageFile").value = "";
+
+        const optionContainer = document.getElementById("editOptionContainer");
+        optionContainer.innerHTML = "";
+
+        if (options && options.length > 0) {
+            options.forEach(opt => {
+                addOptionRow("editOptionContainer", opt.optionName ?? "", opt.extraPrice ?? "");
+            });
+        } else {
+            addOptionRow("editOptionContainer");
+        }
+
+        const modal = new bootstrap.Modal(document.getElementById("editMenuModal"));
+        modal.show();
+    }
+
+    function confirmDeleteMenu(menuId, menuName) {
+        Swal.fire({
+            title: 'ยืนยันการลบเมนู?',
+            html: `คุณต้องการลบเมนู <b>${escapeHtml(menuName)}</b> ใช่หรือไม่`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#AA132A',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'ลบเมนู',
+            cancelButtonText: 'ยกเลิก',
+            reverseButtons: true,
+            customClass: {
+                popup: 'rounded-4'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                document.getElementById("deleteMenuId").value = menuId;
+                document.getElementById("deleteMenuForm").submit();
+            }
+        });
+    }
+
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return "";
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    document.getElementById('addMenuModal').addEventListener('show.bs.modal', function () {
+        const form = document.getElementById('menuForm');
+        form.reset();
+
+        document.getElementById("addMenuPreview").src = "/img/menu/default-food.jpg";
+
+        const addOptionContainer = document.getElementById("addOptionContainer");
+        addOptionContainer.innerHTML = `
+            <div class="row option-row g-2 mb-2">
+                <div class="col-md-6">
+                    <input type="text" class="form-control" name="OptionName" placeholder="เช่น ไข่ดาว / ชีส / ไข่มุก">
+                </div>
+                <div class="col-md-4">
+                    <input type="number" step="0.01" class="form-control" name="ExtraPrice" placeholder="ราคาเพิ่ม" min="0">
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-outline-secondary btn-option-remove w-100" onclick="removeOptionRow(this, 'addOptionContainer')">
+                        ลบ
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+</script>

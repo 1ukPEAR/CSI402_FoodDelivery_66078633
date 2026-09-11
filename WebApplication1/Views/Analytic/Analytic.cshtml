@@ -1,0 +1,1174 @@
+@using WebApplication1.Models.db
+@model List<WebApplication1.Models.db.FoodUser>
+
+@{
+    Layout = "_NavbarOwnerLayout";
+
+    var reviews = ViewBag.Reviews as List<FoodReview> ?? new List<FoodReview>();
+    var users = ViewBag.Users as List<FoodUser> ?? new List<FoodUser>();
+    var orders = ViewBag.Orders as List<FoodOrder> ?? new List<FoodOrder>();
+    var orderItems = ViewBag.OrderItems as List<FoodOrderitem> ?? new List<FoodOrderitem>();
+    var menus = ViewBag.Menus as List<FoodMenu> ?? new List<FoodMenu>();
+
+    // =========================
+    // KPI
+    // =========================
+    decimal totalSales = orders.Sum(o => o.FinalPrice);
+
+    var today = DateOnly.FromDateTime(DateTime.Today);
+    var now = DateTime.Now;
+
+    decimal todaySales = orders
+        .Where(o => o.OrderDate == today)
+        .Sum(o => o.FinalPrice);
+
+    int totalOrders = orders.Count;
+
+    // =========================
+    // เมนูขายดี
+    // =========================
+    var topMenus = orderItems
+        .GroupBy(oi => oi.MenuId)
+        .Select(g => new
+        {
+            MenuId = g.Key,
+            Qty = g.Sum(x => x.Quantity),
+            MenuName = menus.FirstOrDefault(m => m.MenuId == g.Key)?.MenuName ?? g.Key
+        })
+        .OrderByDescending(x => x.Qty)
+        .Take(5)
+        .ToList();
+
+    // =========================
+    // รีวิว
+    // =========================
+    double avgScore = reviews.Any() ? reviews.Average(r => Convert.ToDouble(r.Score)) : 0;
+    int totalReviews = reviews.Count;
+
+    // รีวิววันนี้
+    var reviewsToday = reviews
+        .Where(r => r.ReviewDate.HasValue && r.ReviewDate.Value.Date == DateTime.Today)
+        .OrderByDescending(r => r.ReviewDate)
+        .ToList();
+
+    // รีวิวเดือนนี้
+    var reviewsThisMonth = reviews
+        .Where(r => r.ReviewDate.HasValue
+                    && r.ReviewDate.Value.Month == now.Month
+                    && r.ReviewDate.Value.Year == now.Year)
+        .OrderByDescending(r => r.ReviewDate)
+        .ToList();
+
+    // =========================
+    // กราฟรายวัน (7 วันล่าสุด)
+    // =========================
+    var last7Days = Enumerable.Range(0, 7)
+        .Select(i => DateOnly.FromDateTime(DateTime.Today.AddDays(-6 + i)))
+        .ToList();
+
+    var sales7Days = last7Days
+        .Select(day => orders
+            .Where(o => o.OrderDate == day)
+            .Sum(o => o.FinalPrice))
+        .ToList();
+
+    decimal maxSalesDaily = sales7Days.Any() ? sales7Days.Max() : 0;
+
+    // =========================
+    // กราฟรายเดือน (6 เดือนล่าสุด)
+    // =========================
+    var monthLabels = Enumerable.Range(0, 6)
+        .Select(i => new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(-5 + i))
+        .ToList();
+
+    var salesByMonth = monthLabels
+        .Select(m => orders
+            .Where(o => o.OrderDate.Year == m.Year && o.OrderDate.Month == m.Month)
+            .Sum(o => o.FinalPrice))
+        .ToList();
+
+    decimal maxSalesMonthly = salesByMonth.Any() ? salesByMonth.Max() : 0;
+
+    // =========================
+    // กราฟรายปี (5 ปีล่าสุด)
+    // =========================
+    var yearLabels = Enumerable.Range(0, 5)
+        .Select(i => DateTime.Today.Year - 4 + i)
+        .ToList();
+
+    var salesByYear = yearLabels
+        .Select(y => orders
+            .Where(o => o.OrderDate.Year == y)
+            .Sum(o => o.FinalPrice))
+        .ToList();
+
+    decimal maxSalesYearly = salesByYear.Any() ? salesByYear.Max() : 0;
+}
+
+<style>
+    :root {
+        --bg-main: #f7f1e4;
+        --card-bg: #fffdfa;
+        --card-bg-soft: #fffaf3;
+        --line: #e7dcc7;
+        --line-soft: #f1e8d8;
+        --text-main: #003049;
+        --text-soft: #6b7280;
+        --accent: #c1122f;
+        --accent-dark: #9f1239;
+        --accent-soft: #fff3f5;
+        --success: #198754;
+        --success-soft: #eaf8ef;
+        --warning: #a16207;
+        --warning-soft: #fff7dd;
+        --primary: #0b5ed7;
+        --primary-soft: #eef6ff;
+        --shadow-soft: 0 12px 30px rgba(0, 48, 73, 0.05);
+        --shadow-sm: 0 8px 20px rgba(0, 48, 73, 0.04);
+        --radius-xl: 28px;
+        --radius-lg: 22px;
+        --radius-md: 18px;
+    }
+
+    body {
+        font-family: 'Prompt', sans-serif;
+        background: var(--bg-main);
+        color: var(--text-main);
+    }
+
+    .dashboard-wrap {
+        max-width: 1380px;
+        margin: 0 auto;
+    }
+
+    /* =========================
+       HERO
+    ========================= */
+    .owner-hero {
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        padding: 0;
+        box-shadow: none;
+        margin-bottom: 1.75rem;
+    }
+
+    .owner-hero .row {
+        align-items: end !important;
+    }
+
+    .owner-hero-title {
+        font-size: clamp(2.2rem, 4vw, 4rem);
+        font-weight: 800;
+        line-height: 1.04;
+        letter-spacing: -0.03em;
+        color: var(--text-main);
+        margin-bottom: 0.45rem;
+    }
+
+    .owner-hero-subtitle {
+        color: var(--text-soft);
+        font-size: 1rem;
+        line-height: 1.7;
+        margin-bottom: 0;
+        max-width: 760px;
+    }
+
+    .hero-chip-wrap {
+        display: flex;
+        gap: 0.65rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+    }
+
+    .hero-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.65rem 1rem;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: #fff;
+        font-size: 0.84rem;
+        font-weight: 600;
+        color: var(--text-main);
+        box-shadow: 0 4px 12px rgba(0, 48, 73, 0.03);
+    }
+
+    .hero-chip i {
+        font-size: 1rem;
+        color: var(--accent);
+    }
+
+    .review-summary {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        padding: 1rem 1.2rem;
+        min-width: 210px;
+        text-align: center;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .review-summary-score {
+        font-size: clamp(1.8rem, 2.5vw, 2.2rem);
+        font-weight: 800;
+        color: #b28704;
+        line-height: 1;
+        margin-bottom: 0.35rem;
+    }
+
+    .review-summary-text {
+        font-size: 0.85rem;
+        color: var(--text-soft);
+        line-height: 1.5;
+    }
+
+    /* =========================
+       ALERT
+    ========================= */
+    .owner-alert {
+        border: none;
+        border-radius: 18px;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 1rem;
+        font-weight: 500;
+    }
+
+    /* =========================
+       KPI CARD
+    ========================= */
+    .kpi-card {
+        background: #ffffff;
+        border: 1px solid var(--line);
+        border-radius: 26px;
+        padding: 1.3rem;
+        box-shadow: var(--shadow-soft);
+        height: 100%;
+        transition: all 0.2s ease;
+    }
+
+    .kpi-card:hover {
+        transform: translateY(-2px);
+    }
+
+    .kpi-label {
+        font-size: 0.9rem;
+        color: var(--text-soft);
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+    }
+
+    .kpi-value {
+        font-size: clamp(2rem, 3vw, 2.6rem);
+        font-weight: 800;
+        line-height: 1.08;
+        margin-bottom: 0.25rem;
+        letter-spacing: -0.02em;
+    }
+
+    .kpi-note {
+        font-size: 0.78rem;
+        color: var(--text-soft);
+        margin-top: 0.65rem;
+        line-height: 1.5;
+    }
+
+    .kpi-icon {
+        width: 58px;
+        height: 58px;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.45rem;
+        flex-shrink: 0;
+        border: 1px solid transparent;
+    }
+
+    .icon-danger {
+        background: var(--accent-soft);
+        color: var(--accent);
+        border-color: #f3d8de;
+    }
+
+    .icon-success {
+        background: var(--success-soft);
+        color: var(--success);
+        border-color: #d4eadc;
+    }
+
+    .icon-primary {
+        background: var(--primary-soft);
+        color: var(--primary);
+        border-color: #d9e8ff;
+    }
+
+    /* =========================
+       SECTION CARD
+    ========================= */
+    .section-card {
+        background: #ffffff;
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        padding: 1.35rem;
+        box-shadow: var(--shadow-soft);
+        height: 100%;
+    }
+
+    .section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.8rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
+
+    .section-title {
+        font-size: clamp(1.25rem, 2vw, 1.6rem);
+        font-weight: 800;
+        color: var(--text-main);
+        margin-bottom: 0.2rem;
+        letter-spacing: -0.02em;
+    }
+
+    .section-subtitle {
+        font-size: 0.9rem;
+        color: var(--text-soft);
+        margin-bottom: 0;
+        line-height: 1.55;
+    }
+
+    /* =========================
+       FILTER TABS
+    ========================= */
+    .filter-tabs {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+        background: #fffaf2;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 0.35rem;
+    }
+
+    .filter-btn {
+        border: none;
+        background: transparent;
+        color: var(--text-main);
+        padding: 0.55rem 0.95rem;
+        border-radius: 999px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        transition: all 0.2s ease;
+    }
+
+    .filter-btn:hover {
+        background: #fff;
+        color: var(--accent);
+    }
+
+    .filter-btn.active {
+        background: #fff5f6;
+        color: var(--accent);
+        border: 1px solid #f1d9dd;
+        box-shadow: 0 3px 10px rgba(193, 18, 47, 0.05);
+    }
+
+    .review-count-badge {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 0.55rem 0.9rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+
+    /* =========================
+       CHART
+    ========================= */
+    .chart-shell {
+        height: 270px;
+        background: linear-gradient(180deg, #fffdfa 0%, #fff8ef 100%);
+        border: 1px solid var(--line-soft);
+        border-radius: 24px;
+        padding: 1rem 0.9rem 0.85rem;
+    }
+
+    .chart-col-wrap {
+        height: 100%;
+    }
+
+    .chart-col {
+        width: 70%;
+        border-radius: 18px 18px 8px 8px;
+        background: linear-gradient(180deg, #d73c4a 0%, #c1122f 100%);
+        min-height: 18px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
+        transition: height 0.25s ease;
+    }
+
+    .chart-day {
+        font-size: 0.74rem;
+        color: var(--text-soft);
+        margin-top: 0.5rem;
+        font-weight: 600;
+    }
+
+    .chart-amount {
+        font-size: 0.74rem;
+        font-weight: 700;
+        color: var(--text-main);
+        margin-top: 0.15rem;
+    }
+
+    /* =========================
+       EMPTY STATE
+    ========================= */
+    .empty-state {
+        min-height: 230px;
+        border: 1px dashed var(--line);
+        border-radius: 24px;
+        background: #fffaf4;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 1.2rem;
+        text-align: center;
+    }
+
+    .empty-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 18px;
+        background: #fff;
+        border: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        margin-bottom: 0.8rem;
+        color: var(--accent);
+    }
+
+    /* =========================
+       TOP MENU RANK
+    ========================= */
+    .rank-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+    }
+
+    .rank-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.9rem;
+        padding: 0.95rem;
+        background: linear-gradient(180deg, #fffdfa 0%, #fff9f2 100%);
+        border: 1px solid var(--line-soft);
+        border-radius: 20px;
+        transition: all 0.2s ease;
+    }
+
+    .rank-item:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .rank-left {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        min-width: 0;
+    }
+
+    .rank-badge {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 0.9rem;
+        flex-shrink: 0;
+        box-shadow: 0 8px 18px rgba(193, 18, 47, 0.18);
+    }
+
+    .rank-name {
+        font-weight: 700;
+        color: var(--text-main);
+        margin-bottom: 0.1rem;
+        word-break: break-word;
+        font-size: 0.98rem;
+    }
+
+    .rank-sub {
+        font-size: 0.76rem;
+        color: var(--text-soft);
+    }
+
+    .rank-right {
+        text-align: right;
+        flex-shrink: 0;
+    }
+
+    .rank-qty {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: var(--accent);
+        line-height: 1;
+    }
+
+    .rank-unit {
+        font-size: 0.76rem;
+        color: var(--text-soft);
+    }
+
+    /* =========================
+       REVIEW CARD
+    ========================= */
+    .review-card {
+        background: linear-gradient(180deg, #fffdfa 0%, #fff9f3 100%);
+        border: 1px solid var(--line-soft);
+        border-radius: 22px;
+        padding: 1rem;
+        height: 100%;
+        transition: all 0.2s ease;
+    }
+
+    .review-card:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .review-name {
+        font-weight: 800;
+        color: var(--text-main);
+        margin-bottom: 0.1rem;
+        font-size: 1rem;
+    }
+
+    .review-meta {
+        font-size: 0.76rem;
+        color: var(--text-soft);
+        line-height: 1.55;
+    }
+
+    .score-pill {
+        background: var(--warning-soft);
+        border: 1px solid #f4df96;
+        color: #8a6b00;
+        border-radius: 999px;
+        padding: 0.45rem 0.8rem;
+        font-size: 0.78rem;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    .stars-row {
+        font-size: 1.05rem;
+        letter-spacing: 1px;
+        margin-bottom: 0.65rem;
+    }
+
+    .review-box {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 0.85rem;
+        font-size: 0.9rem;
+        color: #4f4f4f;
+        line-height: 1.65;
+    }
+
+    .review-group {
+        display: none;
+    }
+
+    .review-group.active {
+        display: block;
+    }
+
+    /* =========================
+       RESPONSIVE
+    ========================= */
+    @@media (max-width: 991.98px) {
+        .section-card,
+        .kpi-card {
+            border-radius: 22px;
+            padding: 1.1rem;
+        }
+
+        .owner-hero-title {
+            font-size: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.2rem;
+        }
+
+        .chart-shell {
+            height: 250px;
+        }
+    }
+
+    @@media (max-width: 767.98px) {
+        .owner-hero-title {
+            font-size: 1.7rem;
+        }
+
+        .owner-hero-subtitle {
+            font-size: 0.92rem;
+        }
+
+        .hero-chip {
+            font-size: 0.78rem;
+            padding: 0.55rem 0.85rem;
+        }
+
+        .review-summary {
+            width: 100%;
+        }
+
+        .rank-item {
+            padding: 0.85rem;
+        }
+
+        .filter-tabs {
+            width: 100%;
+            justify-content: flex-start;
+        }
+    }
+</style>
+
+<div class="dashboard-wrap py-2">
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success owner-alert">
+            @TempData["Success"]
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger owner-alert">
+            @TempData["Error"]
+        </div>
+    }
+
+    <!-- Hero -->
+    <div class="owner-hero">
+        <div class="row align-items-center g-3">
+            <div class="col-lg-8">
+                <h1 class="owner-hero-title">ภาพรวมร้านอาหาร</h1>
+                <p class="owner-hero-subtitle">
+                    ภาพรวมยอดขาย เมนูขายดี และรีวิวจากลูกค้าในหน้าจอเดียว
+                    ช่วยให้เจ้าของร้านดูภาพรวมธุรกิจได้ง่ายขึ้น
+                </p>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="review-summary ms-lg-auto">
+                    <div class="review-summary-score">⭐ @avgScore.ToString("0.0")</div>
+                    <div class="review-summary-text">คะแนนเฉลี่ยจาก @totalReviews รีวิว</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="kpi-card">
+                <div class="d-flex justify-content-between align-items-start gap-3">
+                    <div>
+                        <div class="kpi-label">ยอดขายรวม</div>
+                        <div class="kpi-value text-danger">฿ @totalSales.ToString("N2")</div>
+                    </div>
+                    <div class="kpi-icon icon-danger">
+                        <i class='bx bx-wallet'></i>
+                    </div>
+                </div>
+                <div class="kpi-note">ยอดขายสุทธิทั้งหมด (หลังหักส่วนลด)</div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="kpi-card">
+                <div class="d-flex justify-content-between align-items-start gap-3">
+                    <div>
+                        <div class="kpi-label">ยอดวันนี้</div>
+                        <div class="kpi-value" style="color: var(--success);">฿ @todaySales.ToString("N2")</div>
+                    </div>
+                    <div class="kpi-icon icon-success">
+                        <i class='bx bx-trending-up'></i>
+                    </div>
+                </div>
+                <div class="kpi-note">ยอดขายของวันนี้ (@DateTime.Today.ToString("dd/MM/yyyy"))</div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="kpi-card">
+                <div class="d-flex justify-content-between align-items-start gap-3">
+                    <div>
+                        <div class="kpi-label">จำนวนยอดสั่ง</div>
+                        <div class="kpi-value text-primary">@totalOrders</div>
+                    </div>
+                    <div class="kpi-icon icon-primary">
+                        <i class='bx bx-receipt'></i>
+                    </div>
+                </div>
+                <div class="kpi-note">จำนวนออเดอร์ทั้งหมดในระบบ</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 2 -->
+    <div class="row g-4 mb-4">
+
+        <!-- กราฟยอดขาย -->
+        <div class="col-lg-7">
+            <div class="section-card">
+                <div class="section-head">
+                    <div>
+                        <div class="section-title">กราฟยอดขาย</div>
+                        <p class="section-subtitle">สลับดูได้ทั้งรายวัน รายเดือน และรายปี</p>
+                    </div>
+
+                    <div class="filter-tabs" id="salesFilterTabs">
+                        <button type="button" class="filter-btn active" data-sales-filter="daily">รายวัน</button>
+                        <button type="button" class="filter-btn" data-sales-filter="monthly">รายเดือน</button>
+                        <button type="button" class="filter-btn" data-sales-filter="yearly">รายปี</button>
+                    </div>
+                </div>
+
+                @if (orders.Any())
+                {
+                    <div class="chart-shell">
+                        <div class="d-flex align-items-end gap-2 gap-md-3 chart-col-wrap" id="salesChartContainer">
+                            @for (int i = 0; i < last7Days.Count; i++)
+                            {
+                                var day = last7Days[i];
+                                var sale = sales7Days[i];
+                                var heightPercent = maxSalesDaily > 0 ? Math.Max(10m, (sale / maxSalesDaily) * 100m) : 10m;
+
+                                <div class="flex-fill d-flex flex-column align-items-center h-100 sales-bar-item">
+                                    <div class="w-100 d-flex align-items-end justify-content-center" style="height: 175px;">
+                                        <div class="chart-col"
+                                             style="height:@heightPercent%;"
+                                             title="฿ @sale.ToString("N2")">
+                                        </div>
+                                    </div>
+                                    <div class="chart-day">@day.ToString("dd/MM")</div>
+                                    <div class="chart-amount">฿ @sale.ToString("N0")</div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <script>
+                        window.salesChartData = {
+                            daily: [
+                                @for (int i = 0; i < last7Days.Count; i++)
+                                {
+                                    <text>{
+                                        label: "@last7Days[i].ToString("dd/MM")",
+                                        amount: @sales7Days[i].ToString(System.Globalization.CultureInfo.InvariantCulture)
+                                    }</text>
+                                    if (i < last7Days.Count - 1) { <text>,</text> }
+                                }
+                            ],
+                            monthly: [
+                                @for (int i = 0; i < monthLabels.Count; i++)
+                                {
+                                    <text>{
+                                        label: "@monthLabels[i].ToString("MM/yyyy")",
+                                        amount: @salesByMonth[i].ToString(System.Globalization.CultureInfo.InvariantCulture)
+                                    }</text>
+                                    if (i < monthLabels.Count - 1) { <text>,</text> }
+                                }
+                            ],
+                            yearly: [
+                                @for (int i = 0; i < yearLabels.Count; i++)
+                                {
+                                    <text>{
+                                        label: "@yearLabels[i]",
+                                        amount: @salesByYear[i].ToString(System.Globalization.CultureInfo.InvariantCulture)
+                                    }</text>
+                                    if (i < yearLabels.Count - 1) { <text>,</text> }
+                                }
+                            ]
+                        };
+                    </script>
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <i class='bx bx-bar-chart-alt-2'></i>
+                        </div>
+                        <h6 class="fw-bold mb-1">ยังไม่มีข้อมูลยอดขาย</h6>
+                        <p class="text-muted mb-0">เมื่อมีออเดอร์ ระบบจะแสดงกราฟที่นี่</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- เมนูขายดี -->
+        <div class="col-lg-5">
+            <div class="section-card">
+                <div class="section-head">
+                    <div>
+                        <div class="section-title">จัดอันดับเมนูขายดี</div>
+                        <p class="section-subtitle">Top 5 เมนูที่ถูกสั่งมากที่สุด</p>
+                    </div>
+                </div>
+
+                @if (topMenus.Any())
+                {
+                    <div class="rank-list">
+                        @{
+                            int rank = 1;
+                        }
+
+                        @foreach (var item in topMenus)
+                        {
+                            <div class="rank-item">
+                                <div class="rank-left">
+                                    <div class="rank-badge">@rank</div>
+
+                                    <div>
+                                        <div class="rank-name">@item.MenuName</div>
+                                        <div class="rank-sub">อันดับยอดสั่งขาย</div>
+                                    </div>
+                                </div>
+
+                                <div class="rank-right">
+                                    <div class="rank-qty">@item.Qty</div>
+                                    <div class="rank-unit">รายการ</div>
+                                </div>
+                            </div>
+
+                            rank++;
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <i class='bx bx-bowl-hot'></i>
+                        </div>
+                        <h6 class="fw-bold mb-1">ยังไม่มีข้อมูลเมนูขายดี</h6>
+                        <p class="text-muted mb-0">เมื่อมีรายการสั่งซื้อ ระบบจะแสดงที่นี่</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- รีวิวลูกค้า -->
+    <div class="row">
+        <div class="col-12">
+            <div class="section-card">
+                <div class="section-head mb-4">
+                    <div>
+                        <div class="section-title">รีวิวจากลูกค้า</div>
+                        <p class="section-subtitle">สลับดูรีวิวทั้งหมด รายวัน หรือรายเดือน</p>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="filter-tabs" id="reviewFilterTabs">
+                            <button type="button" class="filter-btn active" data-review-filter="all">ทั้งหมด</button>
+                            <button type="button" class="filter-btn" data-review-filter="daily">รายวัน</button>
+                            <button type="button" class="filter-btn" data-review-filter="monthly">รายเดือน</button>
+                        </div>
+
+                        <div class="review-count-badge" id="reviewCountBadge">
+                            ทั้งหมด @reviews.Count รีวิว
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ALL -->
+                <div class="review-group active" id="reviewGroup-all">
+                    @if (reviews.Any())
+                    {
+                        <div class="row g-3">
+                            @foreach (var review in reviews.OrderByDescending(r => r.ReviewDate).Take(5))
+                            {
+                                var customer = users.FirstOrDefault(u => u.UserId == review.UserId);
+
+                                <div class="col-12">
+                                    <div class="review-card">
+                                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                                            <div>
+                                                <div class="review-name">@(customer?.UserName ?? "ลูกค้า")</div>
+                                                <div class="review-meta">
+                                                    <div>Order: @(string.IsNullOrWhiteSpace(review.OrderId) ? "-" : review.OrderId)</div>
+                                                    <div>@(review.ReviewDate?.ToString("dd/MM/yyyy HH:mm") ?? "-")</div>
+                                                </div>
+                                            </div>
+
+                                            <span class="score-pill">⭐ @review.Score / 5</span>
+                                        </div>
+
+                                        <div class="stars-row">
+                                            @for (int i = 1; i <= 5; i++)
+                                            {
+                                                if (i <= review.Score)
+                                                {
+                                                    <span class="text-warning">★</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-secondary">☆</span>
+                                                }
+                                            }
+                                        </div>
+
+                                        <div class="small text-muted mb-2">รีวิวจากลูกค้า</div>
+                                        <div class="review-box">
+                                            @(string.IsNullOrWhiteSpace(review.CommentReview)
+                                                ? "ลูกค้าให้คะแนนโดยไม่ได้เขียนข้อความรีวิว"
+                                                : review.CommentReview)
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="empty-state">
+                            <div class="empty-icon"><i class='bx bx-message-square-detail'></i></div>
+                            <h5 class="fw-bold mb-2">ยังไม่มีรีวิวจากลูกค้า</h5>
+                            <p class="text-muted mb-0">เมื่อมีลูกค้าให้คะแนน รีวิวจะมาแสดงที่นี่</p>
+                        </div>
+                    }
+                </div>
+
+                <!-- DAILY -->
+                <div class="review-group" id="reviewGroup-daily">
+                    @if (reviewsToday.Any())
+                    {
+                        <div class="row g-3">
+                            @foreach (var review in reviewsToday.Take(5))
+                            {
+                                var customer = users.FirstOrDefault(u => u.UserId == review.UserId);
+
+                                <div class="col-12">
+                                    <div class="review-card">
+                                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                                            <div>
+                                                <div class="review-name">@(customer?.UserName ?? "ลูกค้า")</div>
+                                                <div class="review-meta">
+                                                    <div>Order: @(string.IsNullOrWhiteSpace(review.OrderId) ? "-" : review.OrderId)</div>
+                                                    <div>@(review.ReviewDate?.ToString("dd/MM/yyyy HH:mm") ?? "-")</div>
+                                                </div>
+                                            </div>
+
+                                            <span class="score-pill">⭐ @review.Score / 5</span>
+                                        </div>
+
+                                        <div class="stars-row">
+                                            @for (int i = 1; i <= 5; i++)
+                                            {
+                                                if (i <= review.Score)
+                                                {
+                                                    <span class="text-warning">★</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-secondary">☆</span>
+                                                }
+                                            }
+                                        </div>
+
+                                        <div class="small text-muted mb-2">รีวิวจากลูกค้า</div>
+                                        <div class="review-box">
+                                            @(string.IsNullOrWhiteSpace(review.CommentReview)
+                                                ? "ลูกค้าให้คะแนนโดยไม่ได้เขียนข้อความรีวิว"
+                                                : review.CommentReview)
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="empty-state">
+                            <div class="empty-icon"><i class='bx bx-calendar'></i></div>
+                            <h5 class="fw-bold mb-2">วันนี้ยังไม่มีรีวิว</h5>
+                            <p class="text-muted mb-0">หากมีรีวิวใหม่ในวันนี้ ระบบจะแสดงที่นี่</p>
+                        </div>
+                    }
+                </div>
+
+                <!-- MONTHLY -->
+                <div class="review-group" id="reviewGroup-monthly">
+                    @if (reviewsThisMonth.Any())
+                    {
+                        <div class="row g-3">
+                            @foreach (var review in reviewsThisMonth.Take(5))
+                            {
+                                var customer = users.FirstOrDefault(u => u.UserId == review.UserId);
+
+                                <div class="col-12">
+                                    <div class="review-card">
+                                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                                            <div>
+                                                <div class="review-name">@(customer?.UserName ?? "ลูกค้า")</div>
+                                                <div class="review-meta">
+                                                    <div>Order: @(string.IsNullOrWhiteSpace(review.OrderId) ? "-" : review.OrderId)</div>
+                                                    <div>@(review.ReviewDate?.ToString("dd/MM/yyyy HH:mm") ?? "-")</div>
+                                                </div>
+                                            </div>
+
+                                            <span class="score-pill">⭐ @review.Score / 5</span>
+                                        </div>
+
+                                        <div class="stars-row">
+                                            @for (int i = 1; i <= 5; i++)
+                                            {
+                                                if (i <= review.Score)
+                                                {
+                                                    <span class="text-warning">★</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-secondary">☆</span>
+                                                }
+                                            }
+                                        </div>
+
+                                        <div class="small text-muted mb-2">รีวิวจากลูกค้า</div>
+                                        <div class="review-box">
+                                            @(string.IsNullOrWhiteSpace(review.CommentReview)
+                                                ? "ลูกค้าให้คะแนนโดยไม่ได้เขียนข้อความรีวิว"
+                                                : review.CommentReview)
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="empty-state">
+                            <div class="empty-icon"><i class='bx bx-calendar-alt'></i></div>
+                            <h5 class="fw-bold mb-2">เดือนนี้ยังไม่มีรีวิว</h5>
+                            <p class="text-muted mb-0">หากมีรีวิวในเดือนนี้ ระบบจะแสดงที่นี่</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // =========================
+            // SALES CHART FILTER
+            // =========================
+            const salesFilterButtons = document.querySelectorAll("[data-sales-filter]");
+            const salesChartContainer = document.getElementById("salesChartContainer");
+
+            function renderSalesChart(type) {
+                if (!salesChartContainer || !window.salesChartData || !window.salesChartData[type]) return;
+
+                const data = window.salesChartData[type];
+                const maxAmount = Math.max(...data.map(x => Number(x.amount || 0)), 0);
+
+                let html = "";
+
+                data.forEach(item => {
+                    const amount = Number(item.amount || 0);
+                    const heightPercent = maxAmount > 0 ? Math.max(10, (amount / maxAmount) * 100) : 10;
+
+                    html += `
+                        <div class="flex-fill d-flex flex-column align-items-center h-100 sales-bar-item">
+                            <div class="w-100 d-flex align-items-end justify-content-center" style="height: 175px;">
+                                <div class="chart-col" style="height:${heightPercent}%;" title="฿ ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"></div>
+                            </div>
+                            <div class="chart-day">${item.label}</div>
+                            <div class="chart-amount">฿ ${amount.toLocaleString('en-US', { maximumFractionDigits: 0 })}</div>
+                        </div>
+                    `;
+                });
+
+                salesChartContainer.innerHTML = html;
+            }
+
+            salesFilterButtons.forEach(btn => {
+                btn.addEventListener("click", function () {
+                    salesFilterButtons.forEach(x => x.classList.remove("active"));
+                    this.classList.add("active");
+
+                    const type = this.getAttribute("data-sales-filter");
+                    renderSalesChart(type);
+                });
+            });
+
+            // =========================
+            // REVIEW FILTER
+            // =========================
+            const reviewFilterButtons = document.querySelectorAll("[data-review-filter]");
+            const reviewGroups = document.querySelectorAll(".review-group");
+            const reviewCountBadge = document.getElementById("reviewCountBadge");
+
+            const reviewCounts = {
+                all: @reviews.Count,
+                daily: @reviewsToday.Count,
+                monthly: @reviewsThisMonth.Count
+            };
+
+            function setReviewBadge(type) {
+                if (!reviewCountBadge) return;
+
+                if (type === "daily") {
+                    reviewCountBadge.textContent = `วันนี้ ${reviewCounts.daily} รีวิว`;
+                } else if (type === "monthly") {
+                    reviewCountBadge.textContent = `เดือนนี้ ${reviewCounts.monthly} รีวิว`;
+                } else {
+                    reviewCountBadge.textContent = `ทั้งหมด ${reviewCounts.all} รีวิว`;
+                }
+            }
+
+            reviewFilterButtons.forEach(btn => {
+                btn.addEventListener("click", function () {
+                    reviewFilterButtons.forEach(x => x.classList.remove("active"));
+                    this.classList.add("active");
+
+                    const type = this.getAttribute("data-review-filter");
+
+                    reviewGroups.forEach(group => group.classList.remove("active"));
+
+                    const target = document.getElementById(`reviewGroup-${type}`);
+                    if (target) target.classList.add("active");
+
+                    setReviewBadge(type);
+                });
+            });
+
+            // initial
+            renderSalesChart("daily");
+            setReviewBadge("all");
+        });
+    </script>
+}

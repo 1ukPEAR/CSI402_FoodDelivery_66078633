@@ -1,0 +1,1598 @@
+@model List<WebApplication1.Models.db.FoodOrder>
+@using WebApplication1.Models.db
+
+@{
+    Layout = "_NavbarUserLayout";
+
+    var orderItems = ViewBag.OrderItems as List<FoodOrderitem> ?? new List<FoodOrderitem>();
+    var allMenus = ViewBag.AllMenus as List<FoodMenu> ?? new List<FoodMenu>();
+    var currentUser = ViewBag.CurrentUser as FoodUser;
+    var reviews = ViewBag.Reviews as List<FoodReview> ?? new List<FoodReview>();
+
+    string GetStatusText(ulong? status)
+    {
+        return status switch
+        {
+            1 => "รอพนักงานยืนยันออเดอร์",
+            2 => "รอชำระเงิน",
+            3 => "รอตรวจสอบการชำระเงิน",
+            4 => "ชำระเงินแล้ว / กำลังเตรียมอาหาร",
+            5 => "กำลังจัดส่ง / รอลูกค้ายืนยันรับอาหาร",
+            6 => "กำลังจัดส่ง / รอลูกค้ายืนยันรับอาหาร",
+            7 => "สำเร็จแล้ว",
+            8 => "ออเดอร์ถูกปฏิเสธ",
+            _ => "ไม่ทราบสถานะ"
+        };
+    }
+
+    string GetStatusBadgeClass(ulong? status)
+    {
+        return status switch
+        {
+            1 => "bg-warning text-dark",
+            2 => "bg-info text-dark",
+            3 => "bg-primary",
+            4 => "bg-secondary",
+            5 => "bg-dark",
+            6 => "bg-dark",
+            7 => "bg-success",
+            8 => "bg-danger",
+            _ => "bg-light text-dark"
+        };
+    }
+
+    int GetProgressStep(ulong? status)
+    {
+        return status switch
+        {
+            1 => 1,
+            2 => 2,
+            3 => 3,
+            4 => 4,
+            5 => 5,
+            6 => 5,
+            7 => 6,
+            _ => 0
+        };
+    }
+
+    string GetPromotionText(FoodPromotion? promotion)
+    {
+        if (promotion == null) return "-";
+
+        var type = (promotion.DiscountType ?? "").Trim().ToUpper();
+        var value = promotion.DiscountValue;
+
+        if (type == "AMOUNT")
+        {
+            return $"ลด {value:0.00} บาท";
+        }
+
+        if (value > 0)
+        {
+            return $"ลด {value:0.##}%";
+        }
+
+        if (promotion.DiscountPercent.HasValue)
+        {
+            return $"ลด {promotion.DiscountPercent.Value}%";
+        }
+
+        return promotion.PromotionName ?? "-";
+    }
+
+    bool CanOpenChat(ulong? status)
+    {
+        return status == 1 || status == 2 || status == 3 || status == 4 || status == 5 || status == 6;
+    }
+
+    string[] progressSteps = new[]
+    {
+        "ยืนยันออเดอร์",
+        "ชำระเงิน",
+        "ตรวจสอบ",
+        "เตรียมอาหาร",
+        "จัดส่ง",
+        "สำเร็จ"
+    };
+}
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
+
+    :root {
+        --primary-red: #AA132A;
+        --primary-red-dark: #921125;
+        --soft-red: rgba(170, 19, 42, 0.08);
+        --soft-red-border: rgba(170, 19, 42, 0.14);
+        --card-bg: #FFFFFF;
+        --navy: #003049;
+        --text-muted: #6B7280;
+        --line-soft: #ECE7DE;
+        --soft-gray: #F8F7F3;
+        --success-soft: #EEF6EE;
+        --warning-soft: #FFF8E8;
+        --danger-soft: #FFF3F4;
+        --shadow-soft: 0 8px 24px rgba(0, 48, 73, 0.05);
+        --shadow-card: 0 10px 28px rgba(0, 48, 73, 0.06);
+    }
+
+    html,
+    body,
+    .container,
+    .card,
+    .btn,
+    .form-control,
+    .form-select,
+    .modal-content,
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6,
+    p,
+    span,
+    div,
+    a,
+    button,
+    textarea,
+    label,
+    small,
+    option {
+        font-family: 'Prompt', sans-serif !important;
+    }
+
+    body {
+        background: transparent;
+    }
+
+    .page-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--navy);
+        letter-spacing: -0.3px;
+    }
+
+    .page-subtitle {
+        color: var(--text-muted);
+        margin-bottom: 0;
+        font-size: 0.95rem;
+    }
+
+    .summary-mini-card {
+        border: 1px solid var(--line-soft) !important;
+        border-radius: 22px !important;
+        background: var(--card-bg) !important;
+        box-shadow: var(--shadow-soft) !important;
+    }
+
+    .summary-mini-card .card-body {
+        padding: 1.35rem !important;
+    }
+
+    .mini-label {
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        margin-bottom: 0.35rem;
+    }
+
+    .mini-value {
+        font-size: 1.9rem;
+        font-weight: 700;
+        color: var(--navy);
+        line-height: 1;
+    }
+
+    .mini-value.red {
+        color: var(--primary-red);
+    }
+
+    .mini-value.green {
+        color: #2F6F4F;
+    }
+
+    .alert-clean-success {
+        border: 1px solid #D8E9D8;
+        background: var(--success-soft);
+        color: #2F6F4F;
+        border-radius: 18px;
+        padding: 0.9rem 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .alert-clean-danger {
+        border: 1px solid #F3D4D8;
+        background: var(--danger-soft);
+        color: #8F1023;
+        border-radius: 18px;
+        padding: 0.9rem 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .order-card {
+        border: 1px solid var(--line-soft) !important;
+        border-radius: 24px !important;
+        background: #fff !important;
+        box-shadow: var(--shadow-card) !important;
+        overflow: hidden;
+    }
+
+    .order-card .card-body {
+        padding: 1.6rem !important;
+    }
+
+    .order-id-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--navy);
+    }
+
+    .order-meta {
+        font-size: 0.82rem;
+        color: var(--text-muted);
+    }
+
+    .status-badge-clean {
+        border-radius: 999px !important;
+        padding: 0.65rem 0.95rem !important;
+        font-size: 0.78rem;
+        font-weight: 600;
+        border: 1px solid transparent;
+        box-shadow: none !important;
+    }
+
+    .progress-shell {
+        background: var(--soft-gray);
+        border: 1px solid var(--line-soft);
+        border-radius: 22px;
+        padding: 1.25rem;
+    }
+
+    .step-badge-clean {
+        background: var(--soft-red);
+        color: var(--primary-red);
+        border: 1px solid var(--soft-red-border);
+        border-radius: 999px;
+        padding: 0.5rem 0.85rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+    }
+
+    .progress-track {
+        position: absolute;
+        top: 18px;
+        left: 5%;
+        right: 5%;
+        height: 5px;
+        background: #E5E7EB;
+        border-radius: 999px;
+        z-index: 1;
+    }
+
+    .progress-fill {
+        position: absolute;
+        top: 18px;
+        left: 5%;
+        height: 5px;
+        background: var(--primary-red);
+        border-radius: 999px;
+        z-index: 2;
+    }
+
+    .step-dot {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.88rem;
+        font-weight: 700;
+        margin: 0 auto 0.5rem;
+    }
+
+    .step-dot.active {
+        background: var(--primary-red);
+        color: #fff;
+    }
+
+    .step-dot.inactive {
+        background: #E5E7EB;
+        color: #6B7280;
+    }
+
+    .step-label {
+        font-size: 0.73rem;
+        font-weight: 600;
+        color: var(--navy);
+        line-height: 1.25;
+    }
+
+    .rejected-box {
+        border: 1px solid #F3D4D8;
+        background: var(--danger-soft);
+        border-radius: 20px;
+        padding: 1rem 1.1rem;
+    }
+
+    .info-card {
+        border: 1px solid var(--line-soft) !important;
+        border-radius: 20px !important;
+        background: #fff !important;
+    }
+
+    .info-card .card-body {
+        padding: 1.2rem !important;
+    }
+
+    .section-heading {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--navy);
+        margin-bottom: 1rem;
+    }
+
+    .food-item-card {
+        border: 1px solid var(--line-soft) !important;
+        border-radius: 18px !important;
+        overflow: hidden;
+        background: #fff;
+    }
+
+    .food-item-card .card-body {
+        padding: 1rem !important;
+    }
+
+    .food-item-card .card-img-top {
+        height: 150px !important;
+        object-fit: cover;
+    }
+
+    .food-name {
+        font-size: 0.96rem;
+        font-weight: 700;
+        color: var(--navy);
+    }
+
+    .food-price {
+        color: var(--primary-red);
+        font-weight: 700;
+    }
+
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 0.8rem 0;
+        border-bottom: 1px solid var(--line-soft);
+    }
+
+    .summary-row:last-of-type {
+        border-bottom: none;
+    }
+
+    .summary-label {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .summary-value {
+        font-weight: 600;
+        color: var(--navy);
+        text-align: right;
+    }
+
+    .summary-total {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 1rem;
+        padding-top: 0.9rem;
+        border-top: 1px solid var(--line-soft);
+    }
+
+    .summary-total-label {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--navy);
+    }
+
+    .summary-total-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary-red);
+    }
+
+    .btn-brand {
+        background: var(--primary-red);
+        border: 1px solid var(--primary-red);
+        color: #fff;
+        border-radius: 14px;
+        font-weight: 600;
+        padding: 0.7rem 1rem;
+        box-shadow: none !important;
+    }
+
+    .btn-brand:hover {
+        background: var(--primary-red-dark);
+        border-color: var(--primary-red-dark);
+        color: #fff;
+    }
+
+    .btn-soft {
+        background: #fff;
+        border: 1px solid var(--line-soft);
+        color: var(--navy);
+        border-radius: 14px;
+        font-weight: 600;
+        padding: 0.7rem 1rem;
+        box-shadow: none !important;
+    }
+
+    .btn-soft:hover {
+        background: #FAF8F4;
+        color: var(--primary-red);
+        border-color: var(--soft-red-border);
+    }
+
+    .review-box {
+        border: 1px solid var(--line-soft);
+        border-radius: 18px;
+        background: #FAFAF8;
+        padding: 1rem;
+    }
+
+    .chat-panel {
+        display: none;
+    }
+
+    .chat-panel.show {
+        display: block;
+    }
+
+    .chat-messages-box {
+        max-height: 380px;
+        overflow-y: auto;
+        background: #FAFAF8;
+        border-radius: 18px;
+        border: 1px solid var(--line-soft);
+        padding: 1rem;
+    }
+
+    .chat-empty-state {
+        text-align: center;
+        color: var(--text-muted);
+        padding: 2rem 1rem;
+        font-size: 0.95rem;
+    }
+
+    .chat-row {
+        display: flex;
+        margin-bottom: 0.85rem;
+    }
+
+    .chat-row.mine {
+        justify-content: flex-end;
+    }
+
+    .chat-row.other {
+        justify-content: flex-start;
+    }
+
+    .chat-bubble-wrap {
+        max-width: 80%;
+    }
+
+    .chat-sender {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-bottom: 0.2rem;
+        padding: 0 0.35rem;
+    }
+
+    .chat-row.mine .chat-sender {
+        text-align: right;
+    }
+
+    .chat-bubble {
+        padding: 0.75rem 1rem;
+        border-radius: 16px;
+        word-break: break-word;
+        line-height: 1.45;
+    }
+
+    .chat-row.mine .chat-bubble {
+        background: var(--primary-red);
+        color: #fff;
+        border-bottom-right-radius: 6px;
+    }
+
+    .chat-row.other .chat-bubble {
+        background: #fff;
+        color: #212529;
+        border: 1px solid var(--line-soft);
+        border-bottom-left-radius: 6px;
+    }
+
+    .chat-time {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+        padding: 0 0.35rem;
+    }
+
+    .chat-row.mine .chat-time {
+        text-align: right;
+    }
+
+    .chat-send-disabled {
+        background: var(--warning-soft);
+        border: 1px solid #F3E3B8;
+        color: #8A6B14;
+        border-radius: 16px;
+        padding: 0.85rem 1rem;
+        font-size: 0.9rem;
+    }
+
+    .chat-loading {
+        text-align: center;
+        color: var(--text-muted);
+        padding: 1rem;
+    }
+
+    .chat-btn-wrap {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        width: 100%;
+    }
+
+    .chat-btn-wrap .btn {
+        width: 100%;
+    }
+
+    .chat-unread-dot {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--primary-red);
+        border: 2px solid #fff;
+        display: none;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+        z-index: 2;
+    }
+
+    .chat-unread-dot.show {
+        display: block;
+    }
+
+    .modal-content {
+        border: 1px solid var(--line-soft) !important;
+        border-radius: 22px !important;
+        box-shadow: var(--shadow-soft) !important;
+    }
+
+    .modal-header,
+    .modal-footer {
+        border: none !important;
+    }
+
+    .form-control,
+    .form-select {
+        border-radius: 14px !important;
+        border: 1px solid #DDD8CE !important;
+        padding: 0.75rem 0.95rem !important;
+        box-shadow: none !important;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: rgba(170, 19, 42, 0.35) !important;
+        box-shadow: 0 0 0 0.15rem rgba(170, 19, 42, 0.08) !important;
+    }
+
+    @@media (max-width: 767.98px) {
+        .page-title {
+            font-size: 1.45rem;
+        }
+
+        .summary-total-value {
+            font-size: 1.25rem;
+        }
+
+        .chat-bubble-wrap {
+            max-width: 92%;
+        }
+
+        .order-card .card-body {
+            padding: 1.1rem !important;
+        }
+
+        .progress-shell {
+            padding: 1rem;
+        }
+    }
+</style>
+
+<div class="container py-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <h2 class="page-title mb-2">สถานะคำสั่งซื้อของคุณ</h2>
+            <p class="page-subtitle mb-0">
+                ตรวจสอบขั้นตอนการดำเนินการ ชำระเงิน การจัดส่ง และติดต่อร้านค้าได้ในหน้าเดียว
+            </p>
+        </div>
+    </div>
+
+    <form id="inlineChatAntiForgeryForm" class="d-none">
+        @Html.AntiForgeryToken()
+    </form>
+
+    @if (currentUser != null && currentUser.RoleId == "R001")
+    {
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="card summary-mini-card h-100">
+                    <div class="card-body text-center">
+                        <div class="mini-label">จำนวนครั้งที่สั่งสำเร็จ</div>
+                        <div class="mini-value red">@(currentUser.OrderCount ?? 0)</div>
+                        <div class="small text-muted mt-1">ครั้ง</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card summary-mini-card h-100">
+                    <div class="card-body text-center">
+                        <div class="mini-label">แต้มสะสม</div>
+                        <div class="mini-value green">@(currentUser.LoyaltyPoints ?? 0)</div>
+                        <div class="small text-muted mt-1">แต้ม</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert-clean-success">@TempData["Success"]</div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert-clean-danger">@TempData["Error"]</div>
+    }
+
+    @if (Model != null && Model.Any())
+    {
+        @foreach (var order in Model)
+        {
+            var itemsInOrder = orderItems.Where(x => x.OrderId == order.OrderId).ToList();
+
+            var modalId = "paymentModal_" + order.OrderId;
+            var reviewModalId = "reviewModal_" + order.OrderId;
+            var currentStep = GetProgressStep(order.OrderStatus);
+            bool isRejected = order.OrderStatus == 8;
+
+            var review = reviews.FirstOrDefault(r => r.OrderId == order.OrderId);
+
+            var chatPanelId = "chatPanel_" + order.OrderId;
+            var chatMessagesId = "chatMessages_" + order.OrderId;
+            var chatTextareaId = "chatInput_" + order.OrderId;
+            var chatSendBtnId = "chatSendBtn_" + order.OrderId;
+            var chatStatusId = "chatStatus_" + order.OrderId;
+            var chatUnreadDotId = "chatUnreadDot_" + order.OrderId;
+
+            <div class="card mb-4 order-card" data-order-id="@order.OrderId">
+                <div class="card-body">
+
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4">
+                        <div>
+                            <h5 class="order-id-title mb-1">ออเดอร์ #@order.OrderId</h5>
+                            <div class="order-meta">
+                                วันที่ @order.OrderDate.ToString("dd/MM/yyyy")
+                                เวลา @order.OrderTime.ToString(@"HH\:mm")
+                            </div>
+                        </div>
+
+                        <span class="badge status-badge-clean @GetStatusBadgeClass(order.OrderStatus)">
+                            @GetStatusText(order.OrderStatus)
+                        </span>
+                    </div>
+
+                    @if (!isRejected)
+                    {
+                        <div class="mb-4">
+                            <div class="progress-shell">
+                                <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <div class="section-heading mb-0">สถานะการดำเนินการ</div>
+                                    <span class="step-badge-clean">
+                                        STEP @currentStep / @progressSteps.Length
+                                    </span>
+                                </div>
+
+                                <div class="position-relative px-1">
+                                    <div class="progress-track"></div>
+
+                                    @{
+                                        var progressWidth = currentStep <= 1 ? 0 : ((currentStep - 1) * 100.0 / (progressSteps.Length -
+                        1));
+                                    }
+
+                                    <div class="progress-fill" style="width:calc(@progressWidth% * 0.90);"></div>
+
+                                    <div class="d-flex justify-content-between position-relative" style="z-index:3;">
+                                        @for (int i = 0; i < progressSteps.Length; i++)
+                                        {
+                                            var stepNumber = i + 1;
+                                            bool isActive = stepNumber <= currentStep;
+
+                                            <div class="text-center" style="width:@(100.0 / progressSteps.Length)%;">
+                                                <div class="step-dot @(isActive ? "active" : "inactive")">
+                                                    @stepNumber
+                                                </div>
+
+                                                <small class="step-label d-block">
+                                                    @progressSteps[i]
+                                                </small>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="rejected-box mb-4">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div>
+                                    <h6 class="fw-bold mb-1">ออเดอร์นี้ถูกปฏิเสธ</h6>
+                                    <p class="mb-0 small">กรุณาติดต่อร้าน หรือทำรายการใหม่อีกครั้ง</p>
+                                </div>
+                                <span class="badge bg-light text-danger px-3 py-2 rounded-pill">REJECTED</span>
+                            </div>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(order.PaymentMethod))
+                    {
+                        <div class="mb-4">
+                            <div class="card info-card">
+                                <div class="card-body">
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <div class="small text-muted">ช่องทางชำระเงิน</div>
+                                            <div class="fw-semibold text-dark">@order.PaymentMethod</div>
+                                        </div>
+
+                                        @if (!string.IsNullOrWhiteSpace(order.OrderNote))
+                                        {
+                                            <div class="col-md-4">
+                                                <div class="small text-muted">หมายเหตุ</div>
+                                                <div class="text-dark">@order.OrderNote</div>
+                                            </div>
+                                        }
+
+                                        @if (!string.IsNullOrWhiteSpace(order.PaymentSlip))
+                                        {
+                                            <div class="col-md-4">
+                                                <div class="small text-muted">สลิปการชำระเงิน</div>
+                                                <a href="@Url.Content("~/img/slips/" + order.PaymentSlip)" target="_blank"
+                                                       class="text-decoration-none fw-semibold" style="color:#AA132A;">
+                                                    ดูสลิปที่อัปโหลด
+                                                </a>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(order.ShippingReceiverName) ||
+                                             !string.IsNullOrWhiteSpace(order.ShippingPhone) ||
+                                             !string.IsNullOrWhiteSpace(order.ShippingAddressDetail))
+                    {
+                        <div class="mb-4">
+                            <div class="card info-card">
+                                <div class="card-body">
+                                    <h5 class="section-heading">ข้อมูลจัดส่ง</h5>
+
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <div class="small text-muted">ชื่อผู้รับ</div>
+                                            <div class="fw-semibold text-dark">
+                                                @(string.IsNullOrWhiteSpace(order.ShippingReceiverName) ? "-" :
+                                    order.ShippingReceiverName)
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <div class="small text-muted">เบอร์โทรผู้รับ</div>
+                                            <div class="fw-semibold text-dark">
+                                                @(string.IsNullOrWhiteSpace(order.ShippingPhone) ? "-" : order.ShippingPhone)
+                                            </div>
+                                        </div>
+
+                                        <div class="col-12">
+                                            <div class="small text-muted">ที่อยู่จัดส่ง</div>
+                                            <div class="text-dark">
+                                                @order.ShippingAddressDetail
+                                                @if (!string.IsNullOrWhiteSpace(order.ShippingSubDistrict))
+                                                {
+                                                    <span> ต.@order.ShippingSubDistrict</span>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(order.ShippingDistrict))
+                                                {
+                                                    <span> อ.@order.ShippingDistrict</span>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(order.ShippingProvince))
+                                                {
+                                                    <span> จ.@order.ShippingProvince</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="row g-4">
+                        <div class="col-12 col-lg-8">
+                            <div class="card info-card h-100">
+                                <div class="card-body">
+                                    <h5 class="section-heading">รายการอาหาร</h5>
+
+                                    <div class="row g-3">
+                                        @if (itemsInOrder.Any())
+                                        {
+                                            @foreach (var item in itemsInOrder)
+                                            {
+                                                var menu = allMenus.FirstOrDefault(m => m.MenuId == item.MenuId);
+
+                                                var imgPath = string.IsNullOrWhiteSpace(menu?.MenuImage)
+                                                    ? "/img/menu/default-food.jpg"
+                                                    : (menu.MenuImage.StartsWith("/") ? menu.MenuImage : "/img/menu/" + menu.MenuImage);
+
+                                                decimal lineTotal = item.Price * item.Quantity;
+
+                                                <div class="col-12 col-md-6">
+                                                    <div class="card food-item-card h-100">
+                                                        <img src="@Url.Content(imgPath)" class="card-img-top" />
+
+                                                        <div class="card-body">
+                                                            <h6 class="food-name mb-2">@(menu?.MenuName ?? "ไม่พบชื่อเมนู")</h6>
+
+                                                            <div class="small text-muted mb-1">
+                                                                ราคาต่อชิ้น: ฿@item.Price.ToString("0.00")
+                                                            </div>
+
+                                                            <div class="small text-muted mb-2">
+                                                                จำนวน: @item.Quantity
+                                                            </div>
+
+                                                            <div class="food-price">
+                                                                รวม: ฿@lineTotal.ToString("0.00")
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <div class="col-12">
+                                                <div class="text-muted">ไม่พบรายการอาหารในออเดอร์นี้</div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-lg-4">
+                            <div class="card info-card h-100">
+                                <div class="card-body">
+                                    <h5 class="section-heading">สรุปยอดชำระ</h5>
+
+                                    <div class="summary-row">
+                                        <span class="summary-label">ยอดรวมก่อนส่วนลด</span>
+                                        <span class="summary-value">฿@order.TotalPrice.ToString("0.00")</span>
+                                    </div>
+
+                                    <div class="summary-row">
+                                        <span class="summary-label">โปรโมชั่นที่ใช้</span>
+                                        <span class="summary-value">
+                                            @(order.Promotion?.PromotionName ?? "-")
+                                        </span>
+                                    </div>
+
+                                    @if (order.Promotion != null)
+                                    {
+                                        <div class="summary-row">
+                                            <span class="summary-label">รายละเอียดโปร</span>
+                                            <span class="summary-value">
+                                                @GetPromotionText(order.Promotion)
+                                            </span>
+                                        </div>
+                                    }
+
+                                    <div class="summary-row">
+                                        <span class="summary-label">ส่วนลด</span>
+                                        <span class="summary-value" style="color:#2F6F4F;">
+                                            ฿@((order.DiscountAmount ?? 0m).ToString("0.00"))
+                                        </span>
+                                    </div>
+
+                                    <div class="summary-total">
+                                        <span class="summary-total-label">ยอดสุทธิ</span>
+                                        <span class="summary-total-value">฿@order.FinalPrice.ToString("0.00")</span>
+                                    </div>
+
+                                    <div class="mt-4 d-flex flex-wrap gap-2">
+
+                                        @if (order.OrderStatus == 2)
+                                        {
+                                            <button type="button" class="btn btn-brand w-100" data-bs-toggle="modal"
+                                                    data-bs-target="#@modalId">
+                                                ชำระเงิน
+                                            </button>
+                                        }
+
+                                        @if (order.OrderStatus == 5 || order.OrderStatus == 6)
+                                        {
+                                            <form asp-controller="Order" asp-action="ConfirmReceived" method="post"
+                                                  class="m-0 w-100">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@order.OrderId" />
+                                                <button type="submit" class="btn btn-brand w-100">
+                                                    รับอาหารแล้ว
+                                                </button>
+                                            </form>
+                                        }
+
+                                        @if (CanOpenChat(order.OrderStatus))
+                                        {
+                                            <div class="w-100">
+                                                <div class="chat-btn-wrap">
+                                                    <button type="button" class="btn btn-soft"
+                                                            onclick="toggleOrderChat('@order.OrderId')">
+                                                        ติดต่อร้านค้า
+                                                    </button>
+
+                                                    <span id="@chatUnreadDotId" class="chat-unread-dot"></span>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+
+                                    @if (order.OrderStatus == 7)
+                                    {
+                                        <div class="mt-3">
+                                            <span class="badge rounded-pill px-3 py-2"
+                                                  style="background:#EEF6EE; color:#2F6F4F; border:1px solid #D8E9D8;">
+                                                ได้รับแต้มจากออเดอร์นี้ +@(order.PointsEarned ?? 0) แต้ม
+                                            </span>
+                                        </div>
+
+                                        <div class="mt-3">
+                                            @if (review == null)
+                                            {
+                                                <button type="button" class="btn btn-soft w-100" data-bs-toggle="modal"
+                                                        data-bs-target="#@reviewModalId">
+                                                    รีวิวออเดอร์นี้
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <div class="review-box">
+                                                    <div class="small text-muted mb-1">คุณรีวิวแล้ว</div>
+
+                                                    <div class="fs-5 mb-2">
+                                                        @for (int i = 1; i <= 5; i++)
+                                                        {
+                                                            if (i <= review.Score)
+                                                            {
+                                                                <span class="text-warning">★</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="text-secondary">☆</span>
+                                                            }
+                                                        }
+                                                    </div>
+
+                                                    @if (!string.IsNullOrWhiteSpace(review.CommentReview))
+                                                    {
+                                                        <div class="small text-dark">@review.CommentReview</div>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="@chatPanelId" class="chat-panel mt-4">
+                        <div class="card info-card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                                    <div>
+                                        <h5 class="section-heading mb-1">แชทกับร้านค้า</h5>
+                                        <div class="small text-muted">
+                                            สอบถามรายละเอียดออเดอร์นี้ได้เลย
+                                        </div>
+                                    </div>
+
+                                    <button type="button" class="btn btn-sm btn-soft"
+                                            onclick="toggleOrderChat('@order.OrderId')">
+                                        ปิดแชท
+                                    </button>
+                                </div>
+
+                                <div id="@chatStatusId" class="mb-3"></div>
+
+                                <div id="@chatMessagesId" class="chat-messages-box">
+                                    <div class="chat-loading">กำลังโหลดข้อความ...</div>
+                                </div>
+
+                                <div class="mt-3">
+                                    <div class="input-group">
+                                        <textarea id="@chatTextareaId" class="form-control" rows="2" maxlength="1000"
+                                                  placeholder="พิมพ์ข้อความถึงร้านค้า..."></textarea>
+
+                                        <button id="@chatSendBtnId" type="button" class="btn btn-brand"
+                                                onclick="sendOrderChatMessage('@order.OrderId')">
+                                            ส่ง
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            @if (order.OrderStatus == 2)
+            {
+                <div class="modal fade" id="@modalId" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title fw-bold">ชำระเงิน - ออเดอร์ @order.OrderId</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+
+                            <form asp-controller="Order" asp-action="ConfirmPayment" method="post" enctype="multipart/form-data">
+                                @Html.AntiForgeryToken()
+                                <div class="modal-body">
+                                    <input type="hidden" name="orderId" value="@order.OrderId" />
+
+                                    <div class="mb-3">
+                                        <label class="form-label">ยอดที่ต้องชำระ</label>
+                                        <input type="text" class="form-control" value="฿@order.FinalPrice.ToString("0.00")"
+                                               readonly />
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">ช่องทางการชำระเงิน</label>
+                                        <select name="PaymentMethod" class="form-select" required>
+                                            <option value="">-- เลือกช่องทาง --</option>
+                                            <option value="PromptPay">PromptPay</option>
+                                            <option value="BankTransfer">โอนผ่านธนาคาร</option>
+                                            <option value="CashOnDelivery">เงินสดปลายทาง</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">อัปโหลดสลิป (ถ้ามี)</label>
+                                        <input type="file" name="SlipFile" class="form-control" accept="image/*" />
+                                        <small class="text-muted">
+                                            ถ้าเลือก PromptPay หรือโอนผ่านธนาคาร ควรแนบสลิป
+                                        </small>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">หมายเหตุเพิ่มเติม</label>
+                                        <textarea name="OrderNote" class="form-control" rows="3"
+                                                  placeholder="เช่น โอนแล้วเวลา 18:45 น."></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-soft" data-bs-dismiss="modal">
+                                        ยกเลิก
+                                    </button>
+                                    <button type="submit" class="btn btn-brand">
+                                        ยืนยันการชำระเงิน
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (order.OrderStatus == 7 && review == null)
+            {
+                <div class="modal fade" id="@reviewModalId" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title fw-bold">รีวิวออเดอร์ @order.OrderId</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+
+                            <form asp-controller="Order" asp-action="SubmitReview" method="post">
+                                @Html.AntiForgeryToken()
+
+                                <div class="modal-body">
+                                    <input type="hidden" name="OrderId" value="@order.OrderId" />
+
+                                    <div class="mb-3">
+                                        <label class="form-label">ให้คะแนน</label>
+                                        <select name="Score" class="form-select" required>
+                                            <option value="">-- เลือกคะแนน --</option>
+                                            <option value="5">⭐⭐⭐⭐⭐ (5)</option>
+                                            <option value="4">⭐⭐⭐⭐ (4)</option>
+                                            <option value="3">⭐⭐⭐ (3)</option>
+                                            <option value="2">⭐⭐ (2)</option>
+                                            <option value="1">⭐ (1)</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">ความคิดเห็นเพิ่มเติม</label>
+                                        <textarea name="CommentReview" class="form-control" rows="4" maxlength="500"
+                                                  placeholder="เช่น อาหารอร่อย ส่งไว บริการดี"></textarea>
+                                        <small class="text-muted">ไม่เกิน 500 ตัวอักษร</small>
+                                    </div>
+                                </div>
+
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-soft" data-bs-dismiss="modal">
+                                        ยกเลิก
+                                    </button>
+                                    <button type="submit" class="btn btn-brand">
+                                        ส่งรีวิว
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    }
+    else
+    {
+        <div class="card info-card">
+            <div class="card-body text-center py-5">
+                <h5 class="fw-bold mb-2">ยังไม่มีคำสั่งซื้อ</h5>
+                <p class="text-muted mb-0">เมื่อสั่งอาหารแล้ว รายการจะมาแสดงที่หน้านี้</p>
+            </div>
+        </div>
+    }
+</div>
+
+<script>
+    const openChatOrders = new Set();
+    const chatRefreshIntervals = {};
+    const chatMetaIntervals = {};
+    const orderChatLastSeen = {};
+    const isChatLoading = {};
+
+    function getAntiForgeryToken() {
+        const tokenInput = document.querySelector('#inlineChatAntiForgeryForm input[name="__RequestVerificationToken"]');
+        return tokenInput ? tokenInput.value : '';
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    function nl2br(text) {
+        return escapeHtml(text).replace(/\n/g, '<br>');
+    }
+
+    function getChatElements(orderId) {
+        return {
+            panel: document.getElementById(`chatPanel_${orderId}`),
+            messages: document.getElementById(`chatMessages_${orderId}`),
+            input: document.getElementById(`chatInput_${orderId}`),
+            sendBtn: document.getElementById(`chatSendBtn_${orderId}`),
+            status: document.getElementById(`chatStatus_${orderId}`),
+            unreadDot: document.getElementById(`chatUnreadDot_${orderId}`)
+        };
+    }
+
+    function setChatUnreadUI(orderId, unreadCount) {
+        const els = getChatElements(orderId);
+        const count = Number(unreadCount || 0);
+
+        if (els.unreadDot) {
+            if (count > 0) {
+                els.unreadDot.classList.add('show');
+            } else {
+                els.unreadDot.classList.remove('show');
+            }
+        }
+    }
+
+    function markChatAsRead(orderId, lastTicks = null) {
+        if (lastTicks !== null && lastTicks !== undefined) {
+            orderChatLastSeen[orderId] = Number(lastTicks) || 0;
+        }
+        setChatUnreadUI(orderId, 0);
+    }
+
+    function startSingleChatMetaPolling(orderId) {
+        if (chatMetaIntervals[orderId]) {
+            clearInterval(chatMetaIntervals[orderId]);
+            delete chatMetaIntervals[orderId];
+        }
+
+        chatMetaIntervals[orderId] = setInterval(() => {
+            pollOrderChatMeta(orderId);
+        }, 5000);
+    }
+
+    function stopChatMetaPolling(orderId) {
+        if (chatMetaIntervals[orderId]) {
+            clearInterval(chatMetaIntervals[orderId]);
+            delete chatMetaIntervals[orderId];
+        }
+    }
+
+    function stopChatRefresh(orderId) {
+        if (chatRefreshIntervals[orderId]) {
+            clearInterval(chatRefreshIntervals[orderId]);
+            delete chatRefreshIntervals[orderId];
+        }
+    }
+
+    function markOrderChatAsReadServer(orderId) {
+        const token = getAntiForgeryToken();
+        if (!token) return Promise.resolve(null);
+
+        const formData = new URLSearchParams();
+        formData.append('__RequestVerificationToken', token);
+        formData.append('orderId', orderId);
+
+        return fetch('/Chat/MarkOrderChatAsRead', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData.toString()
+        })
+            .then(response => {
+                if (!response.ok) return null;
+                return response.json();
+            })
+            .then(data => {
+                if (data && data.success) {
+                    markChatAsRead(orderId, data.lastMessageTicks ?? null);
+                    return data;
+                }
+                return null;
+            })
+            .catch(() => null);
+    }
+
+    async function toggleOrderChat(orderId) {
+        const els = getChatElements(orderId);
+        if (!els.panel) return;
+
+        const isOpen = els.panel.classList.contains('show');
+
+        if (isOpen) {
+            els.panel.classList.remove('show');
+            openChatOrders.delete(orderId);
+
+            stopChatRefresh(orderId);
+            startSingleChatMetaPolling(orderId);
+            return;
+        }
+
+        els.panel.classList.add('show');
+        openChatOrders.add(orderId);
+
+        stopChatMetaPolling(orderId);
+        setChatUnreadUI(orderId, 0);
+
+        await markOrderChatAsReadServer(orderId);
+
+        loadOrderChatMessages(orderId, true);
+
+        stopChatRefresh(orderId);
+
+        chatRefreshIntervals[orderId] = setInterval(() => {
+            if (openChatOrders.has(orderId)) {
+                loadOrderChatMessages(orderId, false);
+            }
+        }, 3000);
+    }
+
+    function renderChatMessages(orderId, data) {
+        const els = getChatElements(orderId);
+        if (!els.messages) return;
+
+        const messages = data.messages || [];
+
+        if (!messages.length) {
+            els.messages.innerHTML = `<div class="chat-empty-state">ยังไม่มีข้อความ เริ่มคุยกับร้านค้าได้เลย</div>`;
+        } else {
+            let html = '';
+
+            messages.forEach(msg => {
+                const rowClass = msg.isMine ? 'mine' : 'other';
+                const senderName = msg.isMine ? 'คุณ' : (msg.senderName || 'ร้านค้า');
+
+                html += `
+                    <div class="chat-row ${rowClass}">
+                        <div class="chat-bubble-wrap">
+                            <div class="chat-sender">${escapeHtml(senderName)}</div>
+                            <div class="chat-bubble">${nl2br(msg.messageText || '')}</div>
+                            <div class="chat-time">${escapeHtml(msg.sentAt || '')}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            els.messages.innerHTML = html;
+        }
+
+        els.messages.scrollTop = els.messages.scrollHeight;
+
+        if (data.lastMessageTicks !== undefined && data.lastMessageTicks !== null) {
+            markChatAsRead(orderId, data.lastMessageTicks);
+        } else {
+            setChatUnreadUI(orderId, 0);
+        }
+
+        if (els.sendBtn && els.input && els.status) {
+            if (data.canSendMessage) {
+                els.sendBtn.disabled = false;
+                els.input.disabled = false;
+                els.input.placeholder = 'พิมพ์ข้อความถึงร้านค้า...';
+                els.status.innerHTML = '';
+            } else {
+                els.sendBtn.disabled = true;
+                els.input.disabled = true;
+                els.input.placeholder = 'ออเดอร์นี้ปิดการส่งข้อความแล้ว';
+
+                els.status.innerHTML = `
+                    <div class="chat-send-disabled">
+                        ออเดอร์นี้ปิดการส่งข้อความแล้ว (อ่านประวัติแชทได้ แต่ส่งข้อความเพิ่มไม่ได้)
+                    </div>
+                `;
+            }
+        }
+    }
+
+    function loadOrderChatMessages(orderId, showLoading = false) {
+        const els = getChatElements(orderId);
+        if (!els.messages) return;
+        if (isChatLoading[orderId]) return;
+
+        isChatLoading[orderId] = true;
+
+        if (showLoading) {
+            els.messages.innerHTML = `<div class="chat-loading">กำลังโหลดข้อความ...</div>`;
+        }
+
+        fetch(`/Chat/GetOrderMessages?orderId=${encodeURIComponent(orderId)}`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('โหลดข้อความไม่สำเร็จ');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data.success) {
+                    els.messages.innerHTML = `<div class="chat-empty-state text-danger">${escapeHtml(data.message || 'ไม่สามารถโหลดข้อความได้')}</div>`;
+
+                    if (els.sendBtn) els.sendBtn.disabled = true;
+                    if (els.input) els.input.disabled = true;
+
+                    return;
+                }
+
+                renderChatMessages(orderId, data);
+            })
+            .catch(error => {
+                console.error('Chat load error:', error);
+                els.messages.innerHTML = `<div class="chat-empty-state text-danger">เกิดข้อผิดพลาดในการโหลดแชท</div>`;
+            })
+            .finally(() => {
+                isChatLoading[orderId] = false;
+            });
+    }
+
+    function sendOrderChatMessage(orderId) {
+        const els = getChatElements(orderId);
+        if (!els.input || !els.sendBtn) return;
+
+        const messageText = els.input.value.trim();
+        if (!messageText) {
+            els.input.focus();
+            return;
+        }
+
+        if (messageText.length > 1000) {
+            alert('ข้อความยาวเกินไป (สูงสุด 1000 ตัวอักษร)');
+            return;
+        }
+
+        const token = getAntiForgeryToken();
+        if (!token) {
+            alert('ไม่พบ token ความปลอดภัย กรุณารีเฟรชหน้า');
+            return;
+        }
+
+        els.sendBtn.disabled = true;
+
+        const formData = new URLSearchParams();
+        formData.append('__RequestVerificationToken', token);
+        formData.append('orderId', orderId);
+        formData.append('messageText', messageText);
+
+        fetch('/Chat/SendMessageAjax', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData.toString()
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('ส่งข้อความไม่สำเร็จ');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data.success) {
+                    alert(data.message || 'ไม่สามารถส่งข้อความได้');
+                    return;
+                }
+
+                els.input.value = '';
+
+                if (data.lastMessageTicks !== undefined && data.lastMessageTicks !== null) {
+                    markChatAsRead(orderId, data.lastMessageTicks);
+                }
+
+                loadOrderChatMessages(orderId, false);
+            })
+            .catch(error => {
+                console.error('Chat send error:', error);
+                alert('เกิดข้อผิดพลาดในการส่งข้อความ');
+            })
+            .finally(() => {
+                setTimeout(() => {
+                    const els2 = getChatElements(orderId);
+                    if (els2.sendBtn && els2.input && !els2.input.disabled) {
+                        els2.sendBtn.disabled = false;
+                    }
+                }, 250);
+            });
+    }
+
+    function pollOrderChatMeta(orderId) {
+        if (openChatOrders.has(orderId)) {
+            return;
+        }
+
+        const lastSeenTicks = Number(orderChatLastSeen[orderId] || 0);
+
+        fetch(`/Chat/GetOrderChatMeta?orderId=${encodeURIComponent(orderId)}&lastSeenTicks=${lastSeenTicks}`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('โหลดสถานะแชทไม่สำเร็จ');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data.success) return;
+
+                const unreadCount = Number(data.unreadCount || 0);
+
+                if ((!orderChatLastSeen[orderId] || Number(orderChatLastSeen[orderId]) === 0) && data.hasMessages) {
+                    orderChatLastSeen[orderId] = Number(data.lastMessageTicks || 0);
+                    setChatUnreadUI(orderId, 0);
+                    return;
+                }
+
+                setChatUnreadUI(orderId, unreadCount);
+            })
+            .catch(error => {
+                console.error('Chat meta error:', orderId, error);
+            });
+    }
+
+    function startChatMetaPolling() {
+        const orderCards = document.querySelectorAll('.order-card[data-order-id]');
+
+        orderCards.forEach(card => {
+            const orderId = card.dataset.orderId;
+            if (!orderId) return;
+
+            pollOrderChatMeta(orderId);
+            startSingleChatMetaPolling(orderId);
+        });
+    }
+
+    function refreshOrderStatus() {
+        fetch('/Order/GetOrderStatusData', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(response => {
+                if (!response.ok) throw new Error('Unauthorized or error');
+                return response.json();
+            })
+            .then(data => {
+                const newSnapshot = JSON.stringify(data);
+
+                if (window.__orderStatusSnapshot && window.__orderStatusSnapshot !== newSnapshot) {
+                    if (openChatOrders.size > 0) {
+                        window.__orderStatusSnapshot = newSnapshot;
+                        return;
+                    }
+
+                    location.reload();
+                }
+
+                window.__orderStatusSnapshot = newSnapshot;
+            })
+            .catch(error => {
+                console.error('Order status fetch error:', error);
+            });
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.target && e.target.tagName === 'TEXTAREA' && e.target.id.startsWith('chatInput_')) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const orderId = e.target.id.replace('chatInput_', '');
+                sendOrderChatMessage(orderId);
+            }
+        }
+    });
+
+    refreshOrderStatus();
+    setInterval(refreshOrderStatus, 10000);
+
+    startChatMetaPolling();
+</script>

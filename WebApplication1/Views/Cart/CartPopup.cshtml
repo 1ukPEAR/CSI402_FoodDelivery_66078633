@@ -1,0 +1,612 @@
+@model List<WebApplication1.FoodViewModels.CartItemViewModel>
+
+@{
+    Layout = null;
+
+    decimal totalNormal = 0m;
+    decimal totalDiscount = 0m;
+    decimal grandTotal = 0m;
+}
+
+@functions {
+    public decimal GetBaseUnitPrice(WebApplication1.FoodViewModels.CartItemViewModel item)
+    {
+        if (item == null) return 0m;
+        return item.Price + item.ExtraPriceTotal;
+    }
+
+    public decimal GetDiscountPerUnit(WebApplication1.FoodViewModels.CartItemViewModel item)
+    {
+        if (item == null || !item.HasPromotion) return 0m;
+
+        decimal baseUnit = GetBaseUnitPrice(item);
+        string discountType = (item.DiscountType ?? "").Trim().ToUpper();
+
+        if (discountType == "AMOUNT")
+        {
+            decimal amount = item.DiscountValue;
+            return amount > baseUnit ? baseUnit : amount;
+        }
+
+        decimal percent = item.DiscountValue;
+        decimal discount = baseUnit * (percent / 100m);
+
+        return discount > baseUnit ? baseUnit : discount;
+    }
+
+    public decimal GetFinalUnitPrice(WebApplication1.FoodViewModels.CartItemViewModel item)
+    {
+        decimal baseUnit = GetBaseUnitPrice(item);
+        decimal discount = GetDiscountPerUnit(item);
+        decimal finalPrice = baseUnit - discount;
+
+        return finalPrice < 0 ? 0 : finalPrice;
+    }
+}
+
+<style>
+    .cart-popup-modern {
+        font-family: 'Prompt', sans-serif;
+        color: #003049;
+        letter-spacing: -0.01em;
+    }
+
+    .cart-empty-modern {
+        text-align: center;
+        padding: 34px 12px;
+        color: #6b7280;
+        font-weight: 400;
+    }
+
+    .cart-empty-modern i {
+        font-size: 52px;
+        color: #d8cbb2;
+        margin-bottom: 10px;
+    }
+
+    .cart-list-modern {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .cart-item-modern {
+        border: 1px solid #e8dcc7;
+        border-radius: 24px;
+        background: #ffffff;
+        padding: 16px 18px;
+        box-shadow: 0 4px 14px rgba(0,0,0,.03);
+        transition: .2s ease;
+    }
+
+    .cart-item-modern:hover {
+        box-shadow: 0 8px 20px rgba(0,0,0,.05);
+    }
+
+    .cart-item-modern.promo-lock {
+        border: 1px solid #f0c8ce;
+        background: #fffdfd;
+    }
+
+    .cart-row-modern {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+    }
+
+    .cart-left-modern {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .cart-thumb-modern {
+        width: 96px;
+        height: 96px;
+        object-fit: cover;
+        border-radius: 18px;
+        border: 1px solid #f0e6d5;
+        background: #f8f6f0;
+        flex-shrink: 0;
+    }
+
+    .cart-content-modern {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .cart-name-modern {
+        font-size: 1.12rem;
+        font-weight: 700;
+        color: #003049;
+        line-height: 1.35;
+        margin-bottom: 6px;
+        letter-spacing: -0.01em;
+    }
+
+    .promo-badge-modern {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 11px;
+        border-radius: 999px;
+        background: #fff4f5;
+        border: 1px solid #f2c7ce;
+        color: #AA132A;
+        font-size: .85rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+
+    .promo-note-modern {
+        font-size: .82rem;
+        color: #9c6b11;
+        font-weight: 500;
+        margin-bottom: 8px;
+        line-height: 1.45;
+    }
+
+    .option-list-modern {
+        margin-bottom: 8px;
+    }
+
+    .option-chip-modern {
+        display: inline-block;
+        margin-right: 6px;
+        margin-bottom: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: #FDF7EA;
+        border: 1px solid #eadfca;
+        color: #6b7280;
+        font-size: .78rem;
+        font-weight: 500;
+    }
+
+    .price-stack-modern {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        margin-bottom: 10px;
+    }
+
+    .old-price-modern {
+        font-size: .88rem;
+        color: #7b8794;
+        text-decoration: line-through;
+        font-weight: 400;
+        line-height: 1.3;
+    }
+
+    .discount-modern {
+        font-size: .9rem;
+        color: #2d7a4f;
+        font-weight: 600;
+        line-height: 1.3;
+    }
+
+    .final-price-modern {
+        font-size: 1.1rem;
+        color: #AA132A;
+        font-weight: 700;
+        line-height: 1.35;
+        letter-spacing: -0.01em;
+    }
+
+    .cart-actions-modern {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 4px;
+    }
+
+    .qty-group-modern {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .qty-btn-modern {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: 1px solid #d7dce3;
+        background: #fff;
+        color: #5f6b7a;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .95rem;
+        transition: .2s ease;
+    }
+
+    .qty-btn-modern:hover {
+        border-color: #bfc7d1;
+        background: #f8fafc;
+        color: #003049;
+    }
+
+    .qty-number-modern {
+        min-width: 22px;
+        text-align: center;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #003049;
+    }
+
+    .btn-remove-modern {
+        border-radius: 12px;
+        padding: 8px 14px;
+        border: 1px solid #f2c7ce;
+        background: #fff;
+        color: #d43a4e;
+        font-weight: 600;
+        font-size: .86rem;
+        transition: .2s ease;
+    }
+
+    .btn-remove-modern:hover {
+        background: #fff4f5;
+        color: #AA132A;
+    }
+
+    .cart-right-modern {
+        min-width: 130px;
+        text-align: right;
+        flex-shrink: 0;
+    }
+
+    .line-price-top-modern {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 3px;
+    }
+
+    .line-old-modern {
+        font-size: .85rem;
+        color: #7b8794;
+        text-decoration: line-through;
+        line-height: 1.2;
+        font-weight: 400;
+    }
+
+    .line-discount-modern {
+        font-size: .88rem;
+        color: #2d7a4f;
+        font-weight: 600;
+        line-height: 1.2;
+    }
+
+    .line-total-modern {
+        font-size: 1.45rem;
+        font-weight: 700;
+        color: #AA132A;
+        line-height: 1.1;
+        margin-top: 6px;
+        letter-spacing: -0.02em;
+    }
+
+    .cart-summary-modern {
+        margin-top: 18px;
+        padding-top: 18px;
+        border-top: 1px solid #e8dcc7;
+    }
+
+    .summary-row-modern {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+        font-size: .98rem;
+    }
+
+    .summary-row-modern .label {
+        color: #6b7280;
+        font-weight: 500;
+    }
+
+    .summary-row-modern .value {
+        color: #003049;
+        font-weight: 600;
+    }
+
+    .summary-row-modern.discount .label,
+    .summary-row-modern.discount .value {
+        color: #2d7a4f;
+        font-weight: 600;
+    }
+
+    .summary-divider-modern {
+        border-top: 1px solid #e8dcc7;
+        margin: 10px 0 14px;
+    }
+
+    .summary-total-modern {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .summary-total-modern .label {
+        font-size: 1.32rem;
+        font-weight: 700;
+        color: #003049;
+        letter-spacing: -0.01em;
+    }
+
+    .summary-total-modern .value {
+        font-size: 1.85rem;
+        font-weight: 800;
+        color: #AA132A;
+        line-height: 1;
+        letter-spacing: -0.02em;
+    }
+
+    .cart-footer-modern {
+        margin-top: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+    }
+
+    .btn-checkout-modern {
+        min-width: 250px;
+        border: none;
+        border-radius: 14px;
+        padding: 12px 22px;
+        background: #8a8f68;
+        color: #fff;
+        font-size: .96rem;
+        font-weight: 700;
+        transition: .2s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 8px 18px rgba(138,143,104,.18);
+    }
+
+    .btn-checkout-modern:hover {
+        background: #767b57;
+        color: #fff;
+        transform: translateY(-1px);
+    }
+
+    .checkout-note-modern {
+        font-size: .84rem;
+        color: #7b8794;
+        text-align: right;
+        font-weight: 400;
+    }
+
+    @@media (max-width: 768px) {
+        .cart-row-modern {
+            flex-direction: column;
+        }
+
+        .cart-left-modern {
+            width: 100%;
+        }
+
+        .cart-right-modern {
+            width: 100%;
+            min-width: unset;
+            text-align: left;
+        }
+
+        .line-price-top-modern {
+            align-items: flex-start;
+        }
+
+        .line-total-modern {
+            font-size: 1.28rem;
+        }
+
+        .summary-total-modern .label {
+            font-size: 1.15rem;
+        }
+
+        .summary-total-modern .value {
+            font-size: 1.5rem;
+        }
+
+        .cart-footer-modern {
+            align-items: stretch;
+        }
+
+        .btn-checkout-modern {
+            width: 100%;
+            min-width: unset;
+        }
+    }
+</style>
+
+<div class="cart-popup-modern">
+    @if (Model == null || !Model.Any())
+    {
+        <div class="cart-empty-modern">
+            <i class='bx bx-cart'></i>
+            <h5 style="font-weight:700; color:#003049;">ยังไม่มีสินค้าในตะกร้า</h5>
+            <div>เลือกเมนูอร่อย ๆ แล้วกลับมาที่นี่ได้เลย</div>
+        </div>
+    }
+    else
+    {
+        <div class="cart-list-modern">
+            @for (int i = 0; i < Model.Count; i++)
+            {
+                var item = Model[i];
+                var baseUnit = GetBaseUnitPrice(item);
+                var discountPerUnit = GetDiscountPerUnit(item);
+                var finalUnit = GetFinalUnitPrice(item);
+                var lineTotal = finalUnit * item.Quantity;
+
+                totalNormal += baseUnit * item.Quantity;
+                totalDiscount += discountPerUnit * item.Quantity;
+
+                <div class="cart-item-modern @(item.HasPromotion ? "promo-lock" : "")">
+                    <div class="cart-row-modern">
+                        <!-- LEFT -->
+                        <div class="cart-left-modern">
+                            <img src="@item.MenuImage"
+                                 alt="@item.MenuName"
+                                 class="cart-thumb-modern"
+                                 onerror="this.src='/img/menu/default-food.jpg'" />
+
+                            <div class="cart-content-modern">
+                                <div class="cart-name-modern">@item.MenuName</div>
+
+                                @if (item.HasPromotion)
+                                {
+                                    <div class="promo-badge-modern">
+                                        <i class='bx bx-purchase-tag-alt'></i>
+                                        ใช้โปร: @(string.IsNullOrWhiteSpace(item.PromotionName) ? "โปรโมชั่นร้าน" : item.PromotionName)
+                                    </div>
+
+                                    <div class="promo-note-modern">
+                                        * รายการโปรโมชั่นไม่สามารถเพิ่ม/ลดจำนวนได้
+                                    </div>
+                                }
+
+                                @if (item.SelectedOptionNames != null && item.SelectedOptionNames.Any())
+                                {
+                                    <div class="option-list-modern">
+                                        @foreach (var opt in item.SelectedOptionNames)
+                                        {
+                                            <span class="option-chip-modern">@opt</span>
+                                        }
+                                    </div>
+                                }
+
+                                <div class="price-stack-modern">
+                                    @if (item.HasPromotion)
+                                    {
+                                        <div class="old-price-modern">ราคาปกติ: ฿@baseUnit.ToString("N2")</div>
+
+                                        <div class="discount-modern">
+                                            ส่วนลด:
+                                            @if ((item.DiscountType ?? "").Trim().ToUpper() == "AMOUNT")
+                                            {
+                                                <span>-฿@discountPerUnit.ToString("N2")</span>
+                                            }
+                                            else
+                                            {
+                                                <span>-@item.DiscountValue.ToString("N0")%</span>
+                                            }
+                                        </div>
+
+                                        <div class="final-price-modern">ราคาหลังลด: ฿@finalUnit.ToString("N2")</div>
+                                    }
+                                    else
+                                    {
+                                        <div class="final-price-modern">ราคาต่อชุด: ฿@baseUnit.ToString("N2")</div>
+                                    }
+                                </div>
+
+                                <div class="cart-actions-modern">
+                                    <div class="qty-group-modern">
+                                        @if (item.HasPromotion)
+                                        {
+                                            <span class="qty-number-modern">@item.Quantity</span>
+
+                                            <form asp-controller="Cart" asp-action="RemoveItem" method="post" class="m-0">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="index" value="@i" />
+                                                <button type="submit" class="btn btn-sm btn-remove-modern">
+                                                    <i class='bx bx-trash me-1'></i>ลบ
+                                                </button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <form asp-controller="Cart" asp-action="DecreaseQuantity" method="post" class="m-0">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="index" value="@i" />
+                                                <button type="submit" class="btn btn-sm qty-btn-modern" aria-label="ลดจำนวน">
+                                                    <i class='bx bx-minus'></i>
+                                                </button>
+                                            </form>
+
+                                            <span class="qty-number-modern">@item.Quantity</span>
+
+                                            <form asp-controller="Cart" asp-action="IncreaseQuantity" method="post" class="m-0">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="index" value="@i" />
+                                                <button type="submit" class="btn btn-sm qty-btn-modern" aria-label="เพิ่มจำนวน">
+                                                    <i class='bx bx-plus'></i>
+                                                </button>
+                                            </form>
+
+                                            <form asp-controller="Cart" asp-action="RemoveItem" method="post" class="m-0">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="index" value="@i" />
+                                                <button type="submit" class="btn btn-sm btn-remove-modern">
+                                                    <i class='bx bx-trash me-1'></i>ลบ
+                                                </button>
+                                            </form>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RIGHT -->
+                        <div class="cart-right-modern">
+                            @if (item.HasPromotion)
+                            {
+                                <div class="line-price-top-modern">
+                                    <div class="line-old-modern">฿@baseUnit.ToString("N2")</div>
+                                    <div class="line-discount-modern">- ฿@discountPerUnit.ToString("N2")</div>
+                                </div>
+                            }
+
+                            <div class="line-total-modern">฿@lineTotal.ToString("N2")</div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        grandTotal = totalNormal - totalDiscount;
+        if (grandTotal < 0) { grandTotal = 0; }
+
+        <div class="cart-summary-modern">
+            <div class="summary-row-modern">
+                <div class="label">รวมราคาปกติ</div>
+                <div class="value">฿@totalNormal.ToString("N2")</div>
+            </div>
+
+            <div class="summary-row-modern discount">
+                <div class="label">ส่วนลดรวม</div>
+                <div class="value">- ฿@totalDiscount.ToString("N2")</div>
+            </div>
+
+            <div class="summary-divider-modern"></div>
+
+            <div class="summary-total-modern">
+                <div class="label">รวมทั้งหมด</div>
+                <div class="value">฿@grandTotal.ToString("N2")</div>
+            </div>
+        </div>
+
+        <div class="cart-footer-modern">
+            <a asp-controller="Order" asp-action="Checkout" class="btn-checkout-modern">
+                <i class='bx bx-check-circle me-2'></i> ไปหน้ายืนยันคำสั่งซื้อ
+            </a>
+
+            <div class="checkout-note-modern">
+                * เลือกที่อยู่จัดส่งและยืนยันคำสั่งซื้อในหน้าถัดไป
+            </div>
+        </div>
+    }
+</div>

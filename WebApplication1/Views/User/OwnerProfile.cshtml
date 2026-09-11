@@ -1,0 +1,275 @@
+@model WebApplication1.Models.db.FoodUser
+
+@{
+    Layout = "_NavbarOwnerLayout";
+}
+
+<style>
+    .profile-card {
+        border: 1px solid #eadfca;
+        border-radius: 28px;
+        background: #fffdfa;
+        box-shadow: 0 14px 30px rgba(0, 48, 73, 0.05);
+    }
+
+    .profile-title {
+        color: #003049;
+        font-weight: 800;
+        font-size: clamp(2rem, 3vw, 2.8rem);
+        line-height: 1.1;
+        margin-bottom: 6px;
+    }
+
+    .profile-subtitle {
+        color: #6b7280;
+        font-size: 0.98rem;
+    }
+
+    .form-label {
+        color: #003049;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+
+    .form-control {
+        border-radius: 16px !important;
+        border: 1px solid #e6d8bf;
+        background: #fffdf8;
+        padding: 12px 14px;
+        min-height: 48px;
+        box-shadow: none !important;
+        transition: all 0.2s ease;
+    }
+
+    .form-control:focus {
+        border-color: rgba(170, 19, 42, 0.35);
+        background: #fff;
+        box-shadow: 0 0 0 4px rgba(170, 19, 42, 0.08) !important;
+    }
+
+    /* ===== Password แบบเดียวกับ Login ===== */
+    .password-wrap {
+        position: relative;
+    }
+
+    .password-input {
+        padding: 12px 46px 12px 14px !important;
+    }
+
+    .toggle-password {
+        position: absolute;
+        top: 50%;
+        right: 12px;
+        transform: translateY(-50%);
+        border: none;
+        background: transparent;
+        color: #7b6f62;
+        font-size: 20px;
+        line-height: 1;
+        padding: 0;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 5;
+    }
+
+    .toggle-password:hover {
+        color: #AA132A;
+    }
+
+    .btn-owner-back {
+        background: #eef2f7;
+        color: #334155;
+        border: 1px solid #dbe3ec;
+        border-radius: 16px;
+        padding: 10px 18px;
+        font-weight: 700;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+
+    .btn-owner-back:hover {
+        background: #e2e8f0;
+        color: #1e293b;
+    }
+
+    .btn-owner-save {
+        background: #c1122f;
+        color: #fff;
+        border: 1px solid #c1122f;
+        border-radius: 16px;
+        padding: 10px 18px;
+        font-weight: 700;
+        transition: all 0.2s ease;
+    }
+
+    .btn-owner-save:hover {
+        background: #a50f27;
+        border-color: #a50f27;
+        color: #fff;
+    }
+
+    .section-divider {
+        border-color: #efe5d4;
+    }
+
+    .alert {
+        border: none;
+        border-radius: 18px;
+        box-shadow: 0 8px 20px rgba(0, 48, 73, 0.05);
+    }
+</style>
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-9 col-lg-7">
+
+            <!-- Alert Success -->
+            @if (TempData["Success"] != null)
+            {
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    @TempData["Success"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+
+            <!-- Alert Error -->
+            @if (TempData["Error"] != null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    @TempData["Error"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+
+            <div class="card profile-card border-0">
+                <div class="card-body p-4 p-md-5">
+
+                    <div class="mb-4 text-center">
+                        <h2 class="profile-title">My Profile</h2>
+                        <p class="profile-subtitle mb-0">แก้ไขข้อมูลเจ้าของร้าน</p>
+                    </div>
+
+                    <form asp-controller="User" asp-action="OwnerProfile" method="post">
+                        @Html.AntiForgeryToken()
+
+                        <!-- Hidden -->
+                        <input type="hidden" asp-for="UserId" />
+                        <input type="hidden" asp-for="RoleId" />
+                        <input type="hidden" asp-for="RegisterDate" />
+
+                        <!-- User ID -->
+                        <div class="mb-3">
+                            <label class="form-label">User ID</label>
+                            <input type="text" class="form-control" value="@Model.UserId" readonly />
+                        </div>
+
+                        <!-- Username -->
+                        <div class="mb-3">
+                            <label asp-for="UserName" class="form-label">Username</label>
+                            <input asp-for="UserName" class="form-control" placeholder="กรอกชื่อผู้ใช้" required />
+                            <span asp-validation-for="UserName" class="text-danger small"></span>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="mb-3">
+                            <label asp-for="UserEmail" class="form-label">Email</label>
+                            <input asp-for="UserEmail" type="email" class="form-control" placeholder="กรอกอีเมล" />
+                            <span asp-validation-for="UserEmail" class="text-danger small"></span>
+                        </div>
+
+                        <!-- Phone -->
+                        <div class="mb-3">
+                            <label asp-for="UserPhone" class="form-label">Phone</label>
+                            <input asp-for="UserPhone" class="form-control" placeholder="กรอกเบอร์โทร" />
+                            <span asp-validation-for="UserPhone" class="text-danger small"></span>
+                        </div>
+
+                        <hr class="my-4 section-divider" />
+
+                        <div class="mb-2">
+                            <h5 class="fw-bold mb-1" style="color:#003049;">เปลี่ยนรหัสผ่าน</h5>
+                            <p class="text-muted small mb-0">
+                                ถ้าไม่ต้องการเปลี่ยนรหัสผ่าน ให้เว้นว่างทั้ง 2 ช่อง
+                            </p>
+                        </div>
+
+                        <!-- New Password -->
+                        <div class="mb-3 mt-3">
+                            <label asp-for="NewPassword" class="form-label">New Password</label>
+                            <div class="password-wrap">
+                                <input asp-for="NewPassword"
+                                       type="password"
+                                       id="newPasswordInput"
+                                       class="form-control password-input"
+                                       placeholder="กรอกรหัสผ่านใหม่ (ถ้าต้องการเปลี่ยน)" />
+                                <button type="button" class="toggle-password" onclick="togglePassword('newPasswordInput', this)">
+                                    <i class="bx bx-hide"></i>
+                                </button>
+                            </div>
+                            <span asp-validation-for="NewPassword" class="text-danger small"></span>
+                        </div>
+
+                        <!-- Confirm Password -->
+                        <div class="mb-4">
+                            <label asp-for="ConfirmPassword" class="form-label">Confirm Password</label>
+                            <div class="password-wrap">
+                                <input asp-for="ConfirmPassword"
+                                       type="password"
+                                       id="confirmPasswordInput"
+                                       class="form-control password-input"
+                                       placeholder="ยืนยันรหัสผ่านใหม่" />
+                                <button type="button" class="toggle-password" onclick="togglePassword('confirmPasswordInput', this)">
+                                    <i class="bx bx-hide"></i>
+                                </button>
+                            </div>
+                            <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-flex justify-content-between flex-wrap gap-2">
+                            <a asp-controller="User" asp-action="UserList" class="btn-owner-back">
+                                ← กลับไปหน้าจัดการผู้ใช้
+                            </a>
+
+                            <button type="submit" class="btn btn-owner-save">
+                                บันทึกข้อมูล
+                            </button>
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+    <!-- Boxicons (กันกรณี layout ไม่มี) -->
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+
+    <script>
+        function togglePassword(inputId, button) {
+            const input = document.getElementById(inputId);
+            const icon = button.querySelector('i');
+
+            if (!input || !icon) return;
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('bx-hide');
+                icon.classList.add('bx-show');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('bx-show');
+                icon.classList.add('bx-hide');
+            }
+        }
+    </script>
+}
