@@ -88,5 +88,3 @@ These responsibilities are defined in the SRS under the Employee role. :contentR
 - Communicate with customers
 
 The Owner role includes management of menus, promotions, users, orders, reviews, and overall sales information. :contentReference[oaicite:5]{index=5}
-The project follows a structured application architecture consisting of:
-
